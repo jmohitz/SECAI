@@ -1,13 +1,22 @@
 # rag_faiss.py
 import os
+from dotenv import load_dotenv  # Add this import
 import streamlit as st
 from document_processor import DocumentProcessor
 from vector_store_manager import VectorStoreManager
 from llm_handler import LLMHandler
 from rag_pipeline import RAGPipeline
 
+# Load environment variables from .env file
+load_dotenv()
+
 DOC_DIR_PATH = r"D:/SECAI_RAG/data"
-GEMINI_API_KEY = "AIzaSyCIaAMXZlc2iBOAR4wUtxAQG8tMoZ2XMlo"
+
+# Read API key from environment variable
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    st.error("Error: OPENAI_API_KEY environment variable is not set. Please set it in the .env file and restart the app.")
+    st.stop()
 
 def initialize_system():
     """Initialize all components"""
@@ -15,7 +24,7 @@ def initialize_system():
         # Initialize components
         doc_processor = DocumentProcessor()
         vs_manager = VectorStoreManager()
-        llm_handler = LLMHandler(GEMINI_API_KEY)
+        llm_handler = LLMHandler(OPENAI_API_KEY)  # Pass the API key from the environment
         
         # Load and create vector store
         if not os.path.exists("faiss_index"):

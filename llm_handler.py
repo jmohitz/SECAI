@@ -1,11 +1,11 @@
 # llm_handler.py
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI  # Updated import
 
 class LLMHandler:
-    def __init__(self, api_key, model="gemini-pro"):
-        self.llm = ChatGoogleGenerativeAI(model=model, google_api_key=api_key)
+    def __init__(self, api_key, model="gpt-4o-mini"):
+        self.llm = ChatOpenAI(openai_api_key=api_key, model=model)  # Updated to use OpenAI
         self.output_parser = StrOutputParser()
     
     def generate_query(self, user_query: str) -> str:
