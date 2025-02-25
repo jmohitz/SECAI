@@ -1,9 +1,0 @@
-streamlit
-requests
-pandas
-tqdm
-langchain_community
-langchain_core
-langchain_text_splitters
-langchain_huggingface
-PyPDF2
