@@ -1,4 +1,3 @@
-# llm_handler.py
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI  # Updated import
@@ -16,14 +15,14 @@ class LLMHandler:
     def generate_query(self, user_query: str) -> str:
         """Generate optimized search query"""
         prompt = ChatPromptTemplate.from_template(
-            "Given the following code snippet: {query}, generate a concise and semantically optimized search query "
-            "to identify relevant software security weaknesses. Focus on potential vulnerabilities, insecure coding practices, "
-            "misconfigurations, and security flaws commonly documented in CWE. Do not include specific CWE IDs in the query. "
+            "Generate a concise, semantically optimized search query for the code snippet {query}"
+            ",focusing on technical terms relevant to the dataset. "
             "Output only a single-line query suitable for semantic search."
         )
         chain = prompt | self.llm | self.output_parser
         return chain.invoke({"query": user_query}).strip()
-    
+
+
     def analyze_vulnerability(self, context: str, question: str) -> str:
         """Perform vulnerability analysis using RAG"""
         prompt_template = ChatPromptTemplate.from_template(

@@ -1,4 +1,3 @@
-# vector_store_manager.py
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 

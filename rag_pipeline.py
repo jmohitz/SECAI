@@ -1,7 +1,4 @@
-# rag_pipeline.py
 import os
-
-import streamlit as st
 import re
 
 class RAGPipeline:
@@ -19,7 +16,6 @@ class RAGPipeline:
         context = ""
         rule_violations = {}
         list_of_violated_rules = []
-        list_of_rules_information = []
 
         context = context+"\n\nThe violated rules and messages\n\n"
         if json_string:
@@ -38,14 +34,10 @@ class RAGPipeline:
                 with open(path, 'r', encoding='utf-8') as file:
                     context = context + f"\n\nCrySL Rule: {rule}\n{file.read()}"
 
-        """        
-        # Query optimization
-        opt_query = self.llm_handler.generate_query(vulnerable_code)
-        print(f"Optimized search query: {opt_query}")
-        """
+        optimized_query = self.llm_handler.generate_query(vulnerable_code)
+        print(f"Optimized search query: {optimized_query}")
 
-        # Document retrieval
-        results = self.vs_manager.vector_store.similarity_search(vulnerable_code, k=3)
+        results = self.vs_manager.vector_store.similarity_search(optimized_query, k=3)
         links_list = []
         names_list = []
         for i, doc in enumerate(results):

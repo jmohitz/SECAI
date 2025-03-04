@@ -1,4 +1,3 @@
-# document_processor.py
 import json
 import os
 from langchain.text_splitter import RecursiveCharacterTextSplitter
