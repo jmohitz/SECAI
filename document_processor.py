@@ -1,4 +1,5 @@
 # document_processor.py
+import json
 import os
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
@@ -10,20 +11,28 @@ class DocumentProcessor:
             chunk_overlap=chunk_overlap
         )
     
-    def load_and_split(self, doc_dir: str, dataset_type: str):
-        """Load and split documents from directory for a specific dataset"""
+    def load_and_split(self, doc_dir: str):
+        """Load and split documents from directory"""
         documents = []
-        dataset_dir = os.path.join(doc_dir, dataset_type)  # Subfolder for the dataset
-        if not os.path.exists(dataset_dir):
-            raise FileNotFoundError(f"Dataset directory not found: {dataset_dir}")
-
-        for filename in os.listdir(dataset_dir):
+        for filename in os.listdir(doc_dir):
             if filename.endswith('.txt'):
-                with open(os.path.join(dataset_dir, filename), 'r', encoding='utf-8') as f:
+                with open(os.path.join(doc_dir, filename), 'r', encoding='utf-8') as f:
                     content = f.read()
                     documents.append(Document(
                         page_content=content,
-                        metadata={"source": filename, "doc_id": filename[:-4], "dataset_type": dataset_type}
+                        metadata={"source": filename, "doc_id": filename[:-4]}
                     ))
-                print(filename)
         return self.text_splitter.split_documents(documents)
+
+    def json_processing(self, json_string: str):
+
+        json_data = json.loads(json_string)
+        results = json_data.get("runs", [])[0].get("results", [])
+        extracted_data = [
+            {
+                "violatedRule": result.get("violatedRule"),
+                "message": f"{result.get('message', {}).get('text', '')}\n{result.get('message', {}).get('richText', '')}"
+            }
+            for result in results
+        ]
+        return extracted_data

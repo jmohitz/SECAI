@@ -1,61 +1,59 @@
 # rag_pipeline.py
+import os
+
 import streamlit as st
+import re
 
 class RAGPipeline:
-    def __init__(self, vector_store_manager, llm_handler):
+    def __init__(self, document_processor, vector_store_manager, llm_handler, json_string):
+        self.document_processor = document_processor
         self.vs_manager = vector_store_manager
         self.llm_handler = llm_handler
+        self.json_string = json_string
 
-    def run(self, user_query: str):
-        """Execute full RAG pipeline with separate queries for CWE and CVE"""
-        # Generate separate optimized queries for CWE and CVE
-        cwe_query = self.llm_handler.generate_query(user_query + " (CWE)")
-        cve_query = self.llm_handler.generate_query(user_query + " (CVE)")
+    def run(self, vulnerable_code: str, json_string):
+        """Execute full RAG pipeline"""
 
-        st.info(f"Optimized CWE search query: {cwe_query}")
-        st.info(f"Optimized CVE search query: {cve_query}")
+        # JSON preprocessing
+        CryslRules_Path = r"data/Crysl_Rules"
+        context = ""
+        rule_violations = {}
+        list_of_violated_rules = []
+        list_of_rules_information = []
 
-        # Retrieve documents separately for CWE and CVE
-        cwe_results = self.vs_manager.get_store("cwe").similarity_search(cwe_query, k=3)
-        cve_results = self.vs_manager.get_store("cve").similarity_search(cve_query, k=3)
+        context = context+"\n\nThe violated rules and messages\n\n"
+        if json_string:
+            rule_violations = self.document_processor.json_processing(json_string)
+        for violation in rule_violations:
+            r = violation['violatedRule'].split('.')[-1]+".txt"
+            if r not in list_of_violated_rules:
+                list_of_violated_rules.append(r)
+            context = context + f"\n\nViolated Rule: {violation['violatedRule']}\n{violation['message']}"
 
-        # Prepare context for CWE
-        cwe_context = "\n\n".join([
-            f"**CWE DOCUMENT {i+1}:**\n{doc.page_content}"
-            for i, doc in enumerate(cwe_results)
-        ])
+        context = context+"\n\nThe relevant CrySL rules\n\n"
 
-        # Prepare context for CVE
-        cve_context = "\n\n".join([
-            f"**CVE DOCUMENT {i+1}:**\n{doc.page_content}"
-            for i, doc in enumerate(cve_results)
-        ])
+        for rule in list_of_violated_rules:
+            path = os.path.join(CryslRules_Path, rule)
+            if os.path.isfile(path):
+                with open(path, 'r', encoding='utf-8') as file:
+                    context = context + f"\n\nCrySL Rule: {rule}\n{file.read()}"
 
-        # Combine contexts
-        combined_context = f"**CWE Documents:**\n{cwe_context}\n\n**CVE Documents:**\n{cve_context}"
+        """        
+        # Query optimization
+        opt_query = self.llm_handler.generate_query(vulnerable_code)
+        print(f"Optimized search query: {opt_query}")
+        """
+
+        # Document retrieval
+        results = self.vs_manager.vector_store.similarity_search(vulnerable_code, k=3)
+        links_list = []
+        names_list = []
+        for i, doc in enumerate(results):
+            link = f"https://cwe.mitre.org/data/definitions/{doc.metadata["doc_id"]}.html"
+            name = re.search(r"Name:\s*(.+)", str(doc.page_content))
+            if name:
+                names_list.append(name.group(1))
+                links_list.append(link)
 
         # Vulnerability analysis
-        analysis_result = self.llm_handler.analyze_vulnerability(combined_context, user_query)
-
-        # Prepare document names for display
-        cwe_doc_names = [doc.metadata["source"] for doc in cwe_results]
-        cve_doc_names = [doc.metadata["source"] for doc in cve_results]
-
-        # Append document names to the analysis result
-        final_output = (
-            f"{analysis_result}\n\n"
-            f"**Retrieved CWE Documents:**\n{', '.join(cwe_doc_names)}\n\n"
-            f"**Retrieved CVE Documents:**\n{', '.join(cve_doc_names)}"
-        )
-
-        return final_output
-
-    def display_results(self, results):
-        """Display search results"""
-        st.subheader("FAISS Search Results")
-        for i, doc in enumerate(results):
-            with st.expander(f"Document {i+1} ({doc.metadata['dataset_type']}):"):
-                st.write("**Content:**")
-                st.write(doc.page_content)
-                st.write("**Metadata:**")
-                st.write(doc.metadata)
+        return self.llm_handler.analyze_vulnerability(context, vulnerable_code), links_list, names_list
