@@ -1,0 +1,115 @@
+{
+  "sarifVersion" : "2.0.0",
+  "runs" : [ {
+    "summary" : {
+      "errorCounts" : {
+        "RequiredPredicateError" : 1,
+        "ConstraintError" : 2,
+        "AlternativeReqPredicateError" : 1
+      },
+      "statistics" : {
+        "entryPoints" : 4,
+        "analysisTime" : "249.2 ms",
+        "edgesInCallGraph" : 149,
+        "callGraphConstructionTime" : "444.8 ms",
+        "typestateAnalysisTime" : "138.5 ms",
+        "reachableMethods" : 78
+      }
+    },
+    "files" : {
+      "com/example/Main.java" : {
+        "mimeType" : "text/java"
+      }
+    },
+    "resources" : {
+      "rules" : [ "java.security.KeyPair", "javax.net.ssl.SSLContext", "java.security.AlgorithmParameterGenerator", "java.security.cert.CertificateFactory", "javax.net.ssl.KeyStoreBuilderParameters", "javax.crypto.spec.SecretKeySpec", "java.security.spec.RSAKeyGenParameterSpec", "javax.crypto.KeyGenerator", "java.security.SecureRandom", "javax.xml.crypto.dsig.spec.HMACParameterSpec", "java.security.KeyPairGenerator", "javax.net.ssl.TrustManagerFactory", "java.security.Signature", "javax.crypto.Mac", "javax.crypto.spec.PBEParameterSpec", "java.security.KeyStore", "javax.crypto.spec.DHParameterSpec", "java.security.spec.X509EncodedKeySpec", "java.security.KeyFactory", "java.security.Key", "java.security.cert.PKIXBuilderParameters", "java.security.DigestOutputStream", "java.security.spec.DSAGenParameterSpec", "java.security.PrivateKey", "javax.crypto.SecretKey", "javax.crypto.spec.GCMParameterSpec", "java.security.cert.TrustAnchor", "javax.net.ssl.CertPathTrustManagerParameters", "java.security.MessageDigest", "javax.net.ssl.SSLParameters", "javax.crypto.Cipher", "javax.net.ssl.SSLEngine", "javax.crypto.CipherInputStream", "javax.crypto.SecretKeyFactory", "java.net.PasswordAuthentication", "javax.crypto.spec.OAEPParameterSpec", "java.security.spec.ECGenParameterSpec", "javax.crypto.spec.IvParameterSpec", "javax.crypto.spec.DHGenParameterSpec", "javax.crypto.spec.PBEKeySpec", "javax.crypto.KeyAgreement", "javax.servlet.http.Cookie", "javax.crypto.CipherOutputStream", "java.security.spec.MGF1ParameterSpec", "javax.net.ssl.KeyManagerFactory", "java.security.PublicKey", "java.security.cert.PKIXParameters", "java.security.AlgorithmParameters", "java.security.spec.ECParameterSpec", "java.security.spec.DSAParameterSpec", "java.security.DigestInputStream" ]
+    },
+    "results" : [ {
+      "violatedRule" : "javax.crypto.Cipher",
+      "errorType" : "ConstraintError",
+      "locations" : [ [ {
+        "physicalLocation" : {
+          "fileLocation" : {
+            "uri" : "com/example/Main.java"
+          },
+          "region" : {
+            "method" : "<com.example.Main: java.lang.String encrypt(java.lang.String,javax.crypto.SecretKey)>",
+            "startLine" : "40",
+            "statement" : "r0 = getInstance(varReplacer2)"
+          }
+        },
+        "fullyQualifiedLogicalName" : "com::example::Main::<com.example.Main: java.lang.String encrypt(java.lang.String,javax.crypto.SecretKey)>"
+      } ] ],
+      "message" : {
+        "text" : "First parameter (with value \"DES\") should be any of {AES, PBEWithHmacSHA224AndAES_128, PBEWithHmacSHA256AndAES_128, PBEWithHmacSHA384AndAES_128, PBEWithHmacSHA512AndAES_128, PBEWithHmacSHA224AndAES_256, PBEWithHmacSHA256AndAES_256, PBEWithHmacSHA384AndAES_256, PBEWithHmacSHA512AndAES_256}",
+        "richText" : "ConstraintError violating CrySL rule for javax.crypto.Cipher"
+      }
+    }, {
+      "violatedRule" : "javax.crypto.Cipher",
+      "errorType" : "AlternativeReqPredicateError",
+      "locations" : [ [ {
+        "physicalLocation" : {
+          "fileLocation" : {
+            "uri" : "com/example/Main.java"
+          },
+          "region" : {
+            "method" : "<com.example.Main: java.lang.String encrypt(java.lang.String,javax.crypto.SecretKey)>",
+            "startLine" : "41",
+            "statement" : "r0.init(varReplacer3,r1)"
+          }
+        },
+        "fullyQualifiedLogicalName" : "com::example::Main::<com.example.Main: java.lang.String encrypt(java.lang.String,javax.crypto.SecretKey)>"
+      } ] ],
+      "message" : {
+        "text" : "Second parameter was not properly generated as generatedPubkey AND Second parameter was not properly generated as generatedKey AND Second parameter was not properly generated as generatedPrivkey",
+        "richText" : "AlternativeReqPredicateError violating CrySL rule for javax.crypto.Cipher"
+      }
+    }, {
+      "violatedRule" : "javax.crypto.KeyGenerator",
+      "errorType" : "ConstraintError",
+      "locations" : [ [ {
+        "physicalLocation" : {
+          "fileLocation" : {
+            "uri" : "com/example/Main.java"
+          },
+          "region" : {
+            "method" : "<com.example.Main: javax.crypto.SecretKey generateKey()>",
+            "startLine" : "34",
+            "statement" : "r0 = getInstance(varReplacer0)"
+          }
+        },
+        "fullyQualifiedLogicalName" : "com::example::Main::<com.example.Main: javax.crypto.SecretKey generateKey()>"
+      } ] ],
+      "message" : {
+        "text" : "First parameter (with value \"DES\") should be any of {AES, HmacSHA256, HmacSHA384, HmacSHA512}",
+        "richText" : "ConstraintError violating CrySL rule for javax.crypto.KeyGenerator"
+      }
+    }, {
+      "violatedRule" : "javax.crypto.SecretKey",
+      "errorType" : "RequiredPredicateError",
+      "locations" : [ [ {
+        "physicalLocation" : {
+          "fileLocation" : {
+            "uri" : "com/example/Main.java"
+          },
+          "region" : {
+            "method" : "<com.example.Main: javax.crypto.SecretKey generateKey()>",
+            "startLine" : "36",
+            "statement" : "$r1 = r0.generateKey()"
+          }
+        },
+        "fullyQualifiedLogicalName" : "com::example::Main::<com.example.Main: javax.crypto.SecretKey generateKey()>"
+      } ] ],
+      "message" : {
+        "text" : "Return value was not properly generated as generatedKey",
+        "richText" : "RequiredPredicateError violating CrySL rule for javax.crypto.SecretKey"
+      }
+    } ],
+    "tool" : {
+      "name" : "CryptoAnalysis",
+      "semanticVersion" : "4.1.1",
+      "language" : "en-US",
+      "version" : "4.1.1"
+    }
+  } ]
+}

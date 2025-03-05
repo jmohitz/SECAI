@@ -1,4 +1,3 @@
-# rag_faiss.py
 import os
 import json
 from dotenv import load_dotenv
@@ -7,56 +6,46 @@ from document_processor import DocumentProcessor
 from vector_store_manager import VectorStoreManager
 from llm_handler import LLMHandler
 from rag_pipeline import RAGPipeline
+import re
 
-# Load environment variables from .env file
 load_dotenv()
+CWE_File_Path = r"data/CWE"
+JSON_FILE_PATH = r"data/CryptoAnalysis-Report.json"
+json_string = None
 
-DOC_DIR_PATH = r"SECAI/data"
-DATASET_TYPES = ["cwe", "cve"]  # List of dataset types
-JSON_FILE_PATH = r"SECAI/data/CryptoAnalysis-Report.json"  # Path to the JSON file
-
-# Read API key from environment variable
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     st.error("Error: OPENAI_API_KEY environment variable is not set. Please set it in the .env file and restart the app.")
     st.stop()
 
 def initialize_system():
-    """Initialize all components"""
     if "rag_pipeline" not in st.session_state:
+
+        doc_processor = DocumentProcessor()
         vs_manager = VectorStoreManager()
-        
-        # Initialize LLMHandler (default parameters are defined in LLMHandler)
         llm_handler = LLMHandler(api_key=OPENAI_API_KEY)
 
-        # Initialize vector stores for all datasets
-        for dataset_type in DATASET_TYPES:
-            if not vs_manager.index_exists(dataset_type):
-                doc_processor = DocumentProcessor()
-                print(f"load and split started, {dataset_type}")
-                chunks = doc_processor.load_and_split(DOC_DIR_PATH, dataset_type)
-                print(f"load and split done, {dataset_type}")
-                vs_manager.create_store(chunks, dataset_type)
-                print(f"store created, {dataset_type}")
-            else:
-                print(f"index exists, {dataset_type}")
-                vs_manager.load_store(dataset_type)
+        print("Checking for vector db index")
+        if not os.path.exists("faiss_index"):
+            print("Index does not exists, create one")
+            chunks = doc_processor.load_and_split(CWE_File_Path)
+            vs_manager.create_store(chunks)
+            vs_manager.save_store()
+            print("Index created")
+        else:
+            print("Index exists, load the vector store")
+            vs_manager.load_store()
         
-        # Create pipeline
-        st.session_state.rag_pipeline = RAGPipeline(vs_manager, llm_handler)
+        st.session_state.rag_pipeline = RAGPipeline(doc_processor, vs_manager, llm_handler, json_string)
 
-# Streamlit UI
 st.title("SEC-AI")
 initialize_system()
 
-# Load JSON file
-json_string = None
 if os.path.exists(JSON_FILE_PATH):
     with open(JSON_FILE_PATH, "r", encoding="utf-8") as f:
         json_data = json.load(f)
-        json_string = json.dumps(json_data, indent=2)  # Convert JSON to string
+        json_string = json.dumps(json_data, indent=2)
     st.success("JSON file loaded successfully!")
-    st.json(json_data)  # Display the JSON content in the app
 else:
     st.warning(f"JSON file not found at: {JSON_FILE_PATH}")
 
@@ -69,14 +58,18 @@ code_input = st.text_area(
 if st.button("Analyze Code", type="primary"):
     with st.spinner("Analyzing potential vulnerabilities..."):
         try:
-            # Pass the JSON string to the LLM along with the code input
             if json_string:
-                response = st.session_state.rag_pipeline.run(code_input, json_string)
+                response, links, names = st.session_state.rag_pipeline.run(code_input, json_string)
             else:
-                response = st.session_state.rag_pipeline.run(code_input)
-
+                response, links, names = st.session_state.rag_pipeline.run(code_input)
             st.markdown("---")
             st.subheader("AI Analysis:")
             st.markdown(response)
+            st.markdown("---")
+            st.markdown("CWE Links")
+            for i in range(0, len(links)):
+                c = re.sub(r".*/definitions/(\d+)\.html", r"CWE-\1", links[i])
+                st.markdown(f"[{c} : {names[i]}]({links[i]})\n")
+            st.markdown("---")
         except Exception as e:
             st.error(f"Error: Analysis failed: {str(e)}")
