@@ -1,4 +1,4 @@
-# .gitignore
 .env
-./data/
-./faiss_index/
+*./data/
+*./faiss_index/
+*./.idea/
