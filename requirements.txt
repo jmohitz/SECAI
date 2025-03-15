@@ -1,0 +1,12 @@
+flask
+python-dotenv
+json
+re
+os
+langchain
+langchain_community
+langchain_huggingface
+langchain_openai
+faiss-cpu
+huggingface-hub
+openai
