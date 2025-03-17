@@ -12,15 +12,16 @@ class LLMHandler:
         )
         self.output_parser = StrOutputParser()
 
-    def generate_query(self, user_query: str) -> str:
+    def generate_query(self, violations: str, code: str) -> str:
         """Generate optimized search query"""
         prompt = ChatPromptTemplate.from_template(
-            "Generate a concise, semantically optimized search query for the code snippet {query}"
+            "Generate a concise, semantically optimized search query for the code snippet {code}"
+            " and take into account the possible violations of rules from {violations}"
             ",focusing on technical terms relevant to the dataset. "
             "Output only a single-line query suitable for semantic search."
         )
         chain = prompt | self.llm | self.output_parser
-        return chain.invoke({"query": user_query}).strip()
+        return chain.invoke({"code": code, "violations": violations}).strip()
 
 
     def analyze_vulnerability(self, context: str, question: str) -> str:

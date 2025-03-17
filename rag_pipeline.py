@@ -26,6 +26,9 @@ class RAGPipeline:
                 list_of_violated_rules.append(r)
             context = context + f"\n\nViolated Rule: {violation['violatedRule']}\n{violation['message']}"
 
+        optimized_query = self.llm_handler.generate_query(context, vulnerable_code)
+        print(f"Optimized search query: {optimized_query}")
+
         context = context+"\n\nThe relevant CrySL rules\n\n"
 
         for rule in list_of_violated_rules:
@@ -34,8 +37,7 @@ class RAGPipeline:
                 with open(path, 'r', encoding='utf-8') as file:
                     context = context + f"\n\nCrySL Rule: {rule}\n{file.read()}"
 
-        optimized_query = self.llm_handler.generate_query(vulnerable_code)
-        print(f"Optimized search query: {optimized_query}")
+
 
         results = self.vs_manager.vector_store.similarity_search(optimized_query, k=3)
         links_list = []
