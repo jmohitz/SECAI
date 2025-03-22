@@ -1,27 +1,29 @@
-import json
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from rag_faiss import process_analysis
 import logging
 
 open('aifix.log', 'w').close()
-log = logging.getLogger('werkzeug')
-log.setLevel(logging.ERROR)
+# log = logging.getLogger('werkzeug')
+# log.setLevel(logging.ERROR)
 logging.basicConfig(filename='aifix.log', level=logging.INFO,  format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+CORS(app)
 @app.route('/aifix', methods=['POST'])
 def aifix():
     logger.info("Post API function to start the AI Fix analysis")
     try:
-        json_file = request.files.get("json_file")
-        code = request.form.get("code")
+        request_data = request.get_json()
+        json_data = request_data["json_file"]
+        code = request_data["code"]
         logger.info("Fetch the Crypto Analysis JSON report as well as the vulnerable code snippet")
 
-        if not json_file or not code:
+        if not json_data or not code:
+            logger.error("Error: Missing json_file or code")
             return jsonify({"error": "Missing json_file or code"}), 400
 
-        json_data = json.load(json_file)
         logger.info("JSON File and code fetched, calling the process analysis function")
         result = process_analysis(json_data, code)
 

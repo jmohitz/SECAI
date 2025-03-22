@@ -19,6 +19,7 @@ def process_analysis(json_data, code_input):
     json_string = None
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     if not OPENAI_API_KEY:
+        logger.error("Error: OPENAI_API_KEY environment variable is not set. Please set it in the .env file.")
         raise ValueError("Error: OPENAI_API_KEY environment variable is not set. Please set it in the .env file.")
 
     doc_processor = DocumentProcessor()
@@ -35,23 +36,40 @@ def process_analysis(json_data, code_input):
         logger.info("Index exists, loading vector store...")
         vs_manager.load_store()
 
+    logger.info("Initializing the RAG pipeline")
     rag_pipeline = RAGPipeline(doc_processor, vs_manager, llm_handler, json_string)
 
+    logger.info("Converting the JSON file info into a string")
     json_string = json.dumps(json_data, indent=2) if json_data else None
 
     try:
         if json_string:
+            logger.info("Starting the RAG pipeline by sending the code snippet and analysis report")
             response, links, names = rag_pipeline.run(code_input, json_string)
         else:
+            logger.info("Starting the RAG pipeline by sending the code snippet")
             response, links, names = rag_pipeline.run(code_input)
 
         cwe_links = [{"cwe": re.sub(r'.*/definitions/(\d+)\.html', r'CWE-\1', link), "name": name, "link": link} for link, name in zip(links, names)]
 
-        return {
-            "message": "Analysis complete",
-            "analysis": response,
-            "cwe_references": cwe_links
+        # Regex pattern to capture sections based on headers at the beginning of lines.
+        logger.info("Using regex to clean the response from the pipeline and seperate it into 3 sections")
+        pattern = r"^(Vulnerability Name|Possible Solution|Explanation):\s*([\s\S]*?)(?=^(Vulnerability Name|Possible Solution|Explanation):|$)"
+        matches = re.findall(pattern, response, re.MULTILINE)
+        sections = {}
+        for header, content, _ in matches:
+            key = header.lower().replace(" ", "_")  # Convert header to key format, e.g., "Vulnerability Name" -> "vulnerability_name"
+            sections[key] = content.strip()
+
+        logger.info("Response is returned via the API")
+
+        split_response = {
+            "Vulnerability_name": sections.get("vulnerability_name", ""),
+            "Possible_solution": sections.get("possible_solution", ""),
+            "Explanation": sections.get("explanation", ""),
+            "CWE_references": cwe_links
         }
+        return split_response
 
     except Exception as e:
         return {"error": f"Analysis failed: {str(e)}"}

@@ -1,5 +1,9 @@
 import os
 import re
+import logging
+
+logging.basicConfig(filename='aifix.log', level=logging.INFO,  format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class RAGPipeline:
     def __init__(self, document_processor, vector_store_manager, llm_handler, json_string):
@@ -9,7 +13,8 @@ class RAGPipeline:
         self.json_string = json_string
 
     def run(self, vulnerable_code: str, json_string):
-        """Execute full RAG pipeline"""
+
+        logger.info("Starting the run function to create context and process analysis report")
 
         # JSON preprocessing
         CryslRules_Path = r"data/Crysl_Rules"
@@ -25,21 +30,21 @@ class RAGPipeline:
             if r not in list_of_violated_rules:
                 list_of_violated_rules.append(r)
             context = context + f"\n\nViolated Rule: {violation['violatedRule']}\n{violation['message']}"
+        logger.info("Added the violated rules and messages from cognicrypt analysis into the LLM context")
 
         optimized_query = self.llm_handler.generate_query(context, vulnerable_code)
-        print(f"Optimized search query: {optimized_query}")
+        logger.info(f"Optimized search query: {optimized_query}")
 
         context = context+"\n\nThe relevant CrySL rules\n\n"
-
         for rule in list_of_violated_rules:
             path = os.path.join(CryslRules_Path, rule)
             if os.path.isfile(path):
                 with open(path, 'r', encoding='utf-8') as file:
                     context = context + f"\n\nCrySL Rule: {rule}\n{file.read()}"
-
-
+        logger.info("Added the relevant CrySL rules into the LLM context")
 
         results = self.vs_manager.vector_store.similarity_search(optimized_query, k=3)
+        logger.info("Vector DB search completed for relevant CWEs")
         links_list = []
         names_list = []
         for i, doc in enumerate(results):
@@ -48,6 +53,8 @@ class RAGPipeline:
             if name:
                 names_list.append(name.group(1))
                 links_list.append(link)
+        logger.info("Created the links for the CWE references retrieved from DB search")
 
         # Vulnerability analysis
+        logger.info("Calling the analyze_vulnerability function which performs analysis of code snippet")
         return self.llm_handler.analyze_vulnerability(context, vulnerable_code), links_list, names_list

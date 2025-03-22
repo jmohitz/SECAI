@@ -2,6 +2,10 @@ import json
 import os
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
+import logging
+
+logging.basicConfig(filename='aifix.log', level=logging.INFO,  format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class DocumentProcessor:
     def __init__(self, chunk_size=1000, chunk_overlap=200):
@@ -24,7 +28,7 @@ class DocumentProcessor:
         return self.text_splitter.split_documents(documents)
 
     def json_processing(self, json_string: str):
-
+        logger.info("Processing the analysis report JSON to only store the violated rule and message text")
         json_data = json.loads(json_string)
         results = json_data.get("runs", [])[0].get("results", [])
         extracted_data = [

@@ -1,6 +1,5 @@
 .env
-*./data/
-*./faiss_index/
-*./.idea/
-*./__pycache__/
 aifix.log
+.idea/
+data/
+faiss_index/
