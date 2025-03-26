@@ -1,0 +1,22 @@
+{
+    "NoCallToError": {
+        "description": "A <b>NoCallToError</b> is triggered when a method is explicitly prohibited in a cryptographic usage pattern, yet it has been invoked. CrySL rules may specify that certain method calls should not occur under specific conditions, such as restricting init() for certain algorithms that do not require explicit initialization. This error signals that the cryptographic implementation does not follow secure guidelines and may introduce security weaknesses.",
+        "examples": [
+            {
+                "rule": "Cipher",
+                "misuse": "The method <code>init</code> should not be called if the algorithm used for <code>getInstance</code> is one of the following:<ul><li>AES</li><li>PBEWithHmacSHA224AndAES_128</li> <li>PBEWithHmacSHA256AndAES_128</li> <li>PBEWithHmacSHA384AndAES_128</li> <li>PBEWithHmacSHA512AndAES_128</li> <li>PBEWithHmacSHA224AndAES_256</li> <li>PBEWithHmacSHA256AndAES_256</li> <li>PBEWithHmacSHA384AndAES_256</li> <li>PBEWithHmacSHA512AndAES_256</li>",
+                "solution": ""
+            },
+            {
+                "rule": "KeyAgreement",
+                "misuse": "The following call should never be made:<pre>SecretKey sharedKey = keAgreement.generateSecret(symmetricKeyAlgorithm);</pre>",
+                "solution": "Instead use <pre>byte[] sharedSecretBuffer = keyAgreement.generateSecret();</pre> or <pre>byte[] sharedSecretBuffer = new byte[1024];\ngenerateSecret(sharedSecretBuffer, offset);</pre>"
+            },
+            {
+                "rule": "KeyPair",
+                "misuse": "",
+                "solution": ""
+            }
+        ]
+    }
+}
