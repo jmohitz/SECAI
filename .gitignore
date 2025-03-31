@@ -1,5 +1,4 @@
 .env
 aifix.log
 .idea/
-data/
 faiss_index/

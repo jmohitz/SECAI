@@ -4,8 +4,6 @@ from rag_faiss import process_analysis
 import logging
 
 open('aifix.log', 'w').close()
-# log = logging.getLogger('werkzeug')
-# log.setLevel(logging.ERROR)
 logging.basicConfig(filename='aifix.log', level=logging.INFO,  format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -18,6 +16,10 @@ def aifix():
         request_data = request.get_json()
         json_data = request_data["json_file"]
         code = request_data["code"]
+        rule = request_data["rule"]
+        message = request_data["msg"]
+        logger.info(rule)
+        logger.info(message)
         logger.info("Fetch the Crypto Analysis JSON report as well as the vulnerable code snippet")
 
         if not json_data or not code:

@@ -40,20 +40,22 @@ def process_analysis(json_data, code_input):
     rag_pipeline = RAGPipeline(doc_processor, vs_manager, llm_handler, json_string)
 
     logger.info("Converting the JSON file info into a string")
-    json_string = json.dumps(json_data, indent=2) if json_data else None
+    if json_data:
+        json_string = json.dumps(json_data, indent=2)
+    else:
+        json_string=None
+    logger.info(f"Code Snippet : {code_input}")
 
     try:
-        if json_string:
-            logger.info("Starting the RAG pipeline by sending the code snippet and analysis report")
-            response, links, names = rag_pipeline.run(code_input, json_string)
-        else:
-            logger.info("Starting the RAG pipeline by sending the code snippet")
-            response, links, names = rag_pipeline.run(code_input)
+        logger.info("Fetch the error type and violated CrySL rule")
+
+        logger.info("Starting the RAG pipeline by sending the code snippet and analysis report")
+        response, links, names = rag_pipeline.run(code_input, json_string)
 
         cwe_links = [{"cwe": re.sub(r'.*/definitions/(\d+)\.html', r'CWE-\1', link), "name": name, "link": link} for link, name in zip(links, names)]
 
         # Regex pattern to capture sections based on headers at the beginning of lines.
-        logger.info("Using regex to clean the response from the pipeline and seperate it into 3 sections")
+        logger.info("Using regex to clean the response from the pipeline and separate it into 3 sections")
         pattern = r"^(Vulnerability Name|Possible Solution|Explanation):\s*([\s\S]*?)(?=^(Vulnerability Name|Possible Solution|Explanation):|$)"
         matches = re.findall(pattern, response, re.MULTILINE)
         sections = {}

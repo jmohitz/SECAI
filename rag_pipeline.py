@@ -18,6 +18,7 @@ class RAGPipeline:
 
         # JSON preprocessing
         CryslRules_Path = r"data/Crysl_Rules"
+        ErrorDesc_Path = r"data/CogniCrypt_ErrorDesc"
         context = ""
         rule_violations = {}
         list_of_violated_rules = []
@@ -30,8 +31,8 @@ class RAGPipeline:
             if r not in list_of_violated_rules:
                 list_of_violated_rules.append(r)
             context = context + f"\n\nViolated Rule: {violation['violatedRule']}\n{violation['message']}"
+            # logger.info(f"Violated Rule: {violation['violatedRule']}\nMessage: {violation['message']}")
         logger.info("Added the violated rules and messages from cognicrypt analysis into the LLM context")
-
         optimized_query = self.llm_handler.generate_query(context, vulnerable_code)
         logger.info(f"Optimized search query: {optimized_query}")
 
@@ -42,6 +43,8 @@ class RAGPipeline:
                 with open(path, 'r', encoding='utf-8') as file:
                     context = context + f"\n\nCrySL Rule: {rule}\n{file.read()}"
         logger.info("Added the relevant CrySL rules into the LLM context")
+
+        context = context+"\n\n\n\n"
 
         results = self.vs_manager.vector_store.similarity_search(optimized_query, k=3)
         logger.info("Vector DB search completed for relevant CWEs")

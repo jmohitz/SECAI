@@ -46,7 +46,8 @@ class LLMHandler:
             Based on this information, give your analysis, and provide a secure code snippet using the following format:
             (Do not use markdown or other formatting tools)
             Vulnerability Name: [Name]
-            Possible Solution: [give me 1 or maximum 2 lines of code here]
+            Possible Solution: [Use the generated explanation and additional context to provide a solution in very few lines of code]
+            [Make the solution a line of code, not text explanation]
             Explanation: [around 100 words]
             """
         )
