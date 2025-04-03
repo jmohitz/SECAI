@@ -6,15 +6,15 @@ from vector_store_manager import VectorStoreManager
 from llm_handler import LLMHandler
 from rag_pipeline import RAGPipeline
 import re
-import logging
+from typing import Optional, Dict, Any
+from logger_config import get_logger
 
-logging.basicConfig(filename='aifix.log', level=logging.INFO,  format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 load_dotenv()
 
-def process_analysis(json_data, code_input, rule, message):
+def ai_fix(json_data: Optional[Dict[str, Any]], code_input: str, rule: str, message: str) -> Dict[str, Any]:
 
-    logger.info("Inside process_analysis")
+    logger.info("Inside analysis function")
     CWE_File_Path = r"data/CWE"
     json_string = None
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -27,13 +27,13 @@ def process_analysis(json_data, code_input, rule, message):
     llm_handler = LLMHandler(api_key=OPENAI_API_KEY)
 
     if not os.path.exists("faiss_index"):
-        logger.info("Index does not exist, creating one...")
+        logger.info("Index does not exist, creating one")
         chunks = doc_processor.load_and_split(CWE_File_Path)
         vs_manager.create_store(chunks)
         vs_manager.save_store()
         logger.info("Index created successfully")
     else:
-        logger.info("Index exists, loading vector store...")
+        logger.info("Index exists, loading vector store")
         vs_manager.load_store()
 
     logger.info("Initializing the RAG pipeline")
@@ -44,7 +44,6 @@ def process_analysis(json_data, code_input, rule, message):
         json_string = json.dumps(json_data, indent=2)
     else:
         json_string=None
-    logger.info(f"Code Snippet : {code_input}")
 
     try:
         logger.info("Fetch the error type and violated CrySL rule")
@@ -54,13 +53,12 @@ def process_analysis(json_data, code_input, rule, message):
 
         cwe_links = [{"cwe": re.sub(r'.*/definitions/(\d+)\.html', r'CWE-\1', link), "name": name, "link": link} for link, name in zip(links, names)]
 
-        # Regex pattern to capture sections based on headers at the beginning of lines.
         logger.info("Using regex to clean the response from the pipeline and separate it into 3 sections")
         pattern = r"^(Vulnerability Name|Possible Solution|Explanation):\s*([\s\S]*?)(?=^(Vulnerability Name|Possible Solution|Explanation):|$)"
         matches = re.findall(pattern, response, re.MULTILINE)
         sections = {}
         for header, content, _ in matches:
-            key = header.lower().replace(" ", "_")  # Convert header to key format, e.g., "Vulnerability Name" -> "vulnerability_name"
+            key = header.lower().replace(" ", "_")
             sections[key] = content.strip()
 
         logger.info("Response is returned via the API")

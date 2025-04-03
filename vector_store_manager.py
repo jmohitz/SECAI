@@ -1,13 +1,15 @@
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
+from logger_config import get_logger
 
+logger = get_logger(__name__)
 class VectorStoreManager:
     def __init__(self, embedding_model="sentence-transformers/all-MiniLM-L6-v2"):
         self.embeddings = HuggingFaceEmbeddings(model_name=embedding_model)
         self.vector_store = None
 
     def create_store(self, documents):
-        """Create new FAISS index"""
+        logger.info("Creating the vector DB")
         self.vector_store = FAISS.from_documents(
             documents=documents,
             embedding=self.embeddings
@@ -15,11 +17,11 @@ class VectorStoreManager:
         return self.vector_store
 
     def save_store(self, path="faiss_index"):
-        """Persist index to disk"""
+        logger.info("Storing the vector DB in local storage")
         self.vector_store.save_local(path)
 
     def load_store(self, path="faiss_index"):
-        """Load existing index"""
+        logger.info("Loading the vector DB from local storage")
         self.vector_store = FAISS.load_local(
             folder_path=path,
             embeddings=self.embeddings,

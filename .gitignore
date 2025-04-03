@@ -2,3 +2,7 @@
 aifix.log
 .idea/
 faiss_index/
+*.pyc
+*.pyo
+*.pyd
+__pycache__/

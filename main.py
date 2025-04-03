@@ -1,11 +1,9 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from rag_faiss import process_analysis
-import logging
+from aifix import ai_fix
+from logger_config import get_logger
 
-open('aifix.log', 'w').close()
-logging.basicConfig(filename='aifix.log', level=logging.INFO,  format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 app = Flask(__name__)
 CORS(app)
@@ -24,8 +22,8 @@ def aifix():
             logger.error("Error: Missing json_file or code")
             return jsonify({"error": "Missing json_file or code"}), 400
 
-        logger.info("JSON File and code fetched, calling the process analysis function")
-        result = process_analysis(json_data, code, rule, message)
+        logger.info("Data fetched, starting the analysis")
+        result = ai_fix(json_data, code, rule, message)
 
         return jsonify(result)
 

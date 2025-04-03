@@ -1,9 +1,9 @@
 import os
 import re
-import logging
+from typing import Optional, Dict, Any, Tuple, List
+from logger_config import get_logger
 
-logging.basicConfig(filename='aifix.log', level=logging.INFO,  format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class RAGPipeline:
     def __init__(self, document_processor, vector_store_manager, llm_handler, json_string):
@@ -12,7 +12,7 @@ class RAGPipeline:
         self.llm_handler = llm_handler
         self.json_string = json_string
 
-    def run(self, vulnerable_code: str, json_string, rule, message):
+    def run(self, vulnerable_code: str, json_string: Optional[str], rule: str, message: str)-> Tuple[str, List[str], List[str]]:
 
         logger.info("Starting the run function to create context and process analysis report")
 
@@ -58,7 +58,7 @@ class RAGPipeline:
         links_list = []
         names_list = []
         for i, doc in enumerate(results):
-            link = f"https://cwe.mitre.org/data/definitions/{doc.metadata["doc_id"]}.html"
+            link = f"https://cwe.mitre.org/data/definitions/{doc.metadata['doc_id']}.html"
             name = re.search(r"Name:\s*(.+)", str(doc.page_content))
             if name:
                 names_list.append(name.group(1))

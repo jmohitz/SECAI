@@ -1,13 +1,11 @@
 import json
 import os
 import re
-
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
-import logging
+from logger_config import get_logger
 
-logging.basicConfig(filename='aifix.log', level=logging.INFO,  format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class DocumentProcessor:
     def __init__(self, chunk_size=1000, chunk_overlap=200):
@@ -17,7 +15,7 @@ class DocumentProcessor:
         )
     
     def load_and_split(self, doc_dir: str):
-        """Load and split documents from directory"""
+        logger.info("Splitting up the CWE files and creating metadata for using in vector DB")
         documents = []
         for filename in os.listdir(doc_dir):
             if filename.endswith('.txt'):
