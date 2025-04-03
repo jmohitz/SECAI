@@ -1,5 +1,5 @@
 {
-    "ForbiddenMethodError": {
+    "forbiddenmethoderror": {
         "description": "A <b>ForbiddenMethodError</b> occurs when an explicitly restricted method is invoked in cryptographic operations. Some methods are banned due to known security vulnerabilities or deprecated functionality. When this error is reported, it means that the method being used is considered insecure or does not comply with best practices. Ignoring this error may lead to weak encryption, insecure randomness, or potential exploitation of deprecated algorithms.",
         "examples": [
             {

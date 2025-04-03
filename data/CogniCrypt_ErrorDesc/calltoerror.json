@@ -1,5 +1,5 @@
 {
-    "CallToError": {
+    "calltoerror": {
         "description": "A <b>CallToError</b> occurs when a required method call is missing in the usage of a cryptographic API. CrySL rules define mandatory method invocations that must occur when using a particular cryptographic object. If the expected method is not invoked, the security or functionality of the cryptographic operation may be compromised. This error often arises when a cryptographic object needs explicit initialization, but the developer fails to invoke the required method. Missing such calls may lead to improper configuration, weaker security guarantees, or even runtime exceptions when the API is used incorrectly.",
         "examples": [
             {

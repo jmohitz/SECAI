@@ -18,16 +18,14 @@ def aifix():
         code = request_data["code"]
         rule = request_data["rule"]
         message = request_data["msg"]
-        logger.info(rule)
-        logger.info(message)
-        logger.info("Fetch the Crypto Analysis JSON report as well as the vulnerable code snippet")
+        logger.info("Fetch the Crypto Analysis JSON report, vulnerable code snippet, CrySL rule violated and error type")
 
         if not json_data or not code:
             logger.error("Error: Missing json_file or code")
             return jsonify({"error": "Missing json_file or code"}), 400
 
         logger.info("JSON File and code fetched, calling the process analysis function")
-        result = process_analysis(json_data, code)
+        result = process_analysis(json_data, code, rule, message)
 
         return jsonify(result)
 

@@ -1,5 +1,5 @@
 {
-    "ImpreciseValueExtractionError": {
+    "imprecisevalueextractionerror": {
         "description": "An <b>ImpreciseValueExtractionError</b> is triggered when the analysis tool cannot precisely determine the value of a cryptographic parameter at runtime. This typically happens when cryptographic values (such as encryption modes or key sizes) are computed dynamically or retrieved from an external source, making them difficult to validate statically. This error highlights potential security risks where cryptographic operations might unknowingly use insecure or unpredictable values. It suggests that cryptographic parameters should be explicitly defined and verifiable.",
         "examples": [
             {

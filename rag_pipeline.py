@@ -12,31 +12,32 @@ class RAGPipeline:
         self.llm_handler = llm_handler
         self.json_string = json_string
 
-    def run(self, vulnerable_code: str, json_string):
+    def run(self, vulnerable_code: str, json_string, rule, message):
 
         logger.info("Starting the run function to create context and process analysis report")
 
-        # JSON preprocessing
         CryslRules_Path = r"data/Crysl_Rules"
         ErrorDesc_Path = r"data/CogniCrypt_ErrorDesc"
         context = ""
         rule_violations = {}
         list_of_violated_rules = []
 
-        context = context+"\n\nThe violated rules and messages\n\n"
+        error_type = rule.split(":")[1]
+        crysl_rule = message.split(" ")[0]
+
+        desc_file = f"{ErrorDesc_Path}/{error_type}.json"
+
+        context = context+"\n\nThe violated rules and messages\n"
         if json_string:
-            rule_violations = self.document_processor.json_processing(json_string)
+            rule_violations = self.document_processor.json_processing(json_string, error_type, crysl_rule)
         for violation in rule_violations:
             r = violation['violatedRule'].split('.')[-1]+".txt"
             if r not in list_of_violated_rules:
                 list_of_violated_rules.append(r)
             context = context + f"\n\nViolated Rule: {violation['violatedRule']}\n{violation['message']}"
-            # logger.info(f"Violated Rule: {violation['violatedRule']}\nMessage: {violation['message']}")
         logger.info("Added the violated rules and messages from cognicrypt analysis into the LLM context")
-        optimized_query = self.llm_handler.generate_query(context, vulnerable_code)
-        logger.info(f"Optimized search query: {optimized_query}")
 
-        context = context+"\n\nThe relevant CrySL rules\n\n"
+        context = context+"\n\nThe relevant CrySL rules\n"
         for rule in list_of_violated_rules:
             path = os.path.join(CryslRules_Path, rule)
             if os.path.isfile(path):
@@ -44,7 +45,13 @@ class RAGPipeline:
                     context = context + f"\n\nCrySL Rule: {rule}\n{file.read()}"
         logger.info("Added the relevant CrySL rules into the LLM context")
 
+        context = context+"\n\nStatic Error Descriptions\n"
+        context = context +  self.document_processor.error_description_processing(desc_file, crysl_rule)
+
         context = context+"\n\n\n\n"
+
+        optimized_query = self.llm_handler.generate_query(context, vulnerable_code)
+        logger.info(f"Optimized search query: {optimized_query}")
 
         results = self.vs_manager.vector_store.similarity_search(optimized_query, k=3)
         logger.info("Vector DB search completed for relevant CWEs")

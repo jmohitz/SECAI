@@ -1,5 +1,5 @@
 {
-    "InstanceOfError": {
+    "instanceoferror": {
         "description": "An <b>InstanceOfError</b> occurs when an object used in a cryptographic operation does not match the expected type. CrySL rules enforce type constraints on cryptographic objects (e.g., a Cipher object might require a SecretKey, but a PublicKey is provided instead). This error prevents incorrect type usage that could lead to runtime failures, security vulnerabilities, or unintentional misconfiguration of cryptographic components.",
         "examples": [
             {

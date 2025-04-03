@@ -1,5 +1,5 @@
 {
-    "IncompleteOperationError": {
+    "incompleteoperationerror": {
         "description": "An <b>IncompleteOperationError</b> is reported when a cryptographic operation is not fully completed as expected. CrySL rules define a specific order of operations (e.g., an encryption process requires initialization before performing encryption, followed by finalization). If a required step is missing, the cryptographic process may remain incomplete, potentially leading to unencrypted data, insecure partial outputs, or unexpected runtime failures. This error ensures that cryptographic workflows are executed in their entirety to maintain security.",
         "examples": [
             {

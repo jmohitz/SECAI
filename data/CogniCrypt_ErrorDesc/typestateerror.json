@@ -1,5 +1,5 @@
 {
-    "TypestateError": {
+    "typestateerror": {
         "description": "A <b>TypestateError</b> is reported when cryptographic operations occur in an incorrect sequence. CrySL rules define a strict ordering of method calls (e.g., an object must be initialized before use). If the operations are performed in an unexpected order, the cryptographic process may become unreliable or insecure. This error ensures that cryptographic APIs are used in their intended sequence, preventing unintended behavior or security gaps in encryption, decryption, and key management.",
         "examples": [
             {

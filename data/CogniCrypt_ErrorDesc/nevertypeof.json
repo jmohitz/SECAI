@@ -1,5 +1,5 @@
 {
-    "NeverTypeOf": {
+    "nevertypeof": {
         "description": "A <b>NeverTypeOfError</b> occurs when a parameter is of a type that is explicitly disallowed.",
         "examples": [
             {

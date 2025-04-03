@@ -12,7 +12,7 @@ logging.basicConfig(filename='aifix.log', level=logging.INFO,  format='%(asctime
 logger = logging.getLogger(__name__)
 load_dotenv()
 
-def process_analysis(json_data, code_input):
+def process_analysis(json_data, code_input, rule, message):
 
     logger.info("Inside process_analysis")
     CWE_File_Path = r"data/CWE"
@@ -50,7 +50,7 @@ def process_analysis(json_data, code_input):
         logger.info("Fetch the error type and violated CrySL rule")
 
         logger.info("Starting the RAG pipeline by sending the code snippet and analysis report")
-        response, links, names = rag_pipeline.run(code_input, json_string)
+        response, links, names = rag_pipeline.run(code_input, json_string, rule, message)
 
         cwe_links = [{"cwe": re.sub(r'.*/definitions/(\d+)\.html', r'CWE-\1', link), "name": name, "link": link} for link, name in zip(links, names)]
 
