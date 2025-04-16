@@ -26,7 +26,7 @@ class LLMHandler:
         for semantic vector search."""
         )
         chain = prompt | self.llm | self.output_parser
-        return chain.invoke({"code": code, "violations": context}).strip()
+        return chain.invoke({"code": code, "context": context}).strip()
 
 
     def analyze_vulnerability(self, context: str, question: str) -> str:
