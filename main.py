@@ -12,18 +12,18 @@ def aifix():
     logger.info("Post API function to start the AI Fix analysis")
     try:
         request_data = request.get_json()
-        json_data = request_data["json_file"]
+        # json_data = request_data["json_file"]
         code = request_data["code"]
         rule = request_data["rule"]
         message = request_data["msg"]
         logger.info("Fetch the Crypto Analysis JSON report, vulnerable code snippet, CrySL rule violated and error type")
 
-        if not json_data or not code:
-            logger.error("Error: Missing json_file or code")
-            return jsonify({"error": "Missing json_file or code"}), 400
+        if not code:
+            logger.error("Error: Missing code snippet")
+            return jsonify({"error": "Missing code snippet"}), 400
 
         logger.info("Data fetched, starting the analysis")
-        result = ai_fix(json_data, code, rule, message)
+        result = ai_fix(code, rule, message)
 
         return jsonify(result)
 

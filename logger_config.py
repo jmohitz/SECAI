@@ -10,10 +10,10 @@ def get_logger(name: str = __name__) -> logging.Logger:
         fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
 
         # Console handler
-        ch = logging.StreamHandler()
-        ch.setFormatter(logging.Formatter('%(levelname)s - %(message)s'))
+        # ch = logging.StreamHandler()
+        # ch.setFormatter(logging.Formatter('%(levelname)s - %(message)s'))
 
         logger.addHandler(fh)
-        logger.addHandler(ch)
+        # logger.addHandler(ch)
 
     return logger

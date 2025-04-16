@@ -12,7 +12,7 @@ from logger_config import get_logger
 logger = get_logger(__name__)
 load_dotenv()
 
-def ai_fix(json_data: Optional[Dict[str, Any]], code_input: str, rule: str, message: str) -> Dict[str, Any]:
+def ai_fix(code_input: str, rule: str, message: str) -> Dict[str, Any]:
 
     logger.info("Inside analysis function")
     CWE_File_Path = r"data/CWE"
@@ -37,19 +37,13 @@ def ai_fix(json_data: Optional[Dict[str, Any]], code_input: str, rule: str, mess
         vs_manager.load_store()
 
     logger.info("Initializing the RAG pipeline")
-    rag_pipeline = RAGPipeline(doc_processor, vs_manager, llm_handler, json_string)
-
-    logger.info("Converting the JSON file info into a string")
-    if json_data:
-        json_string = json.dumps(json_data, indent=2)
-    else:
-        json_string=None
+    rag_pipeline = RAGPipeline(doc_processor, vs_manager, llm_handler)
 
     try:
         logger.info("Fetch the error type and violated CrySL rule")
 
-        logger.info("Starting the RAG pipeline by sending the code snippet and analysis report")
-        response, links, names = rag_pipeline.run(code_input, json_string, rule, message)
+        logger.info("Starting the RAG pipeline by sending the code snippet")
+        response, links, names = rag_pipeline.run(code_input, rule, message)
 
         cwe_links = [{"cwe": re.sub(r'.*/definitions/(\d+)\.html', r'CWE-\1', link), "name": name, "link": link} for link, name in zip(links, names)]
 

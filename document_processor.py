@@ -27,6 +27,7 @@ class DocumentProcessor:
                     ))
         return self.text_splitter.split_documents(documents)
 
+    """
     def json_processing(self, json_string: str, error_type: str, crysl_rule: str):
         logger.info("Processing the analysis report JSON to filter by error type and CrySL rule")
         json_data = json.loads(json_string)
@@ -43,7 +44,7 @@ class DocumentProcessor:
         ]
 
         return filtered_results
-
+    """
 
     def error_description_processing(self, file_path: str, crysl_rule: str):
 
