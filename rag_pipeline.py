@@ -20,7 +20,7 @@ class RAGPipeline:
         context = ""
 
         error_type = rule.split(":")[1]
-        crysl_rule = message.split(" ")[0]+".txt"
+        crysl_rule = message.split(" ")[0]
 
         desc_file = f"{ErrorDesc_Path}/{error_type}.json"
 
@@ -43,14 +43,13 @@ class RAGPipeline:
         logger.info("Added the relevant CrySL rules into the LLM context")
         """
 
-        path = os.path.join(CryslRules_Path, crysl_rule)
+        path = os.path.join(CryslRules_Path, crysl_rule+".txt")
         if os.path.isfile(path):
             with open(path, 'r', encoding='utf-8') as file:
                 context = context + f"\n\nCrySL Rule: {crysl_rule}\n{file.read()}"
 
         context = context+"\n\nStatic Error Descriptions\n"
         context = context +  self.document_processor.error_description_processing(desc_file, crysl_rule)
-
         logger.info(context)
 
         optimized_query = self.llm_handler.generate_query(context, vulnerable_code)
