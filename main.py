@@ -1,33 +1,36 @@
-import argparse
-import json
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 from aifix import ai_fix
 from logger_config import get_logger
 
 logger = get_logger(__name__)
 
-def main():
-    parser = argparse.ArgumentParser(description="AI Fix Analysis Tool")
-    parser.add_argument("--json_file", type=str, required=True, help="Path to the JSON file containing the analysis report")
-    parser.add_argument("--code", type=str, required=True, help="The code snippet to analyze")
-    parser.add_argument("--rule", type=str, required=True, help="The CrySL rule that was violated")
-    parser.add_argument("--msg", type=str, required=True, help="The error type message")
-    args = parser.parse_args()
-
+app = Flask(__name__)
+CORS(app)
+@app.route('/aifix', methods=['POST'])
+def aifix():
+    logger.info("Post API function to start the AI Fix analysis")
     try:
-        # Load JSON data from the provided file path
-        with open(args.json_file, "r", encoding="utf-8") as f:
-            json_data = json.load(f)
+        request_data = request.get_json()
+        json_data = request_data["json_file"]
+        code = request_data["code"]
+        rule = request_data["rule"]
+        message = request_data["msg"]
+        logger.info("Fetch the Crypto Analysis JSON report, vulnerable code snippet, CrySL rule violated and error type")
 
-        # Run the AI Fix analysis
-        result = ai_fix(json_data, args.code, args.rule, args.msg)
-        
-        # Print the result as a JSON string to standard output
-        print(json.dumps(result))
+        if not json_data or not code:
+            logger.error("Error: Missing json_file or code")
+            return jsonify({"error": "Missing json_file or code"}), 400
+
+        logger.info("Data fetched, starting the analysis")
+        result = ai_fix(json_data, code, rule, message)
+
+        return jsonify(result)
+
     except Exception as e:
-        logger.error("Error: " + str(e))
-        # Print error details in JSON format and exit with a non-zero code
-        print(json.dumps({"error": str(e)}))
-        exit(1)
+        logger.error(f"Error : {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    main()
+    logger.info("Starting the API")
+    app.run(host='0.0.0.0', port=8000)
