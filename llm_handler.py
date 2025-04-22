@@ -44,3 +44,15 @@ class LLMHandler:
         )
         chain = prompt_template | self.llm | self.output_parser
         return chain.invoke({"context": context, "question": question})
+
+    def analysis_iterations(self, prev_sol:str):
+        logger.info("Performing another analysis round with the LLM")
+        prompt_template = ChatPromptTemplate.from_template(
+            """As a Java Cryptography Architecture (JCA) developer, this is the output you provided to solve my 
+            vulnerability. Here is the previous solution: {prev_sol}. Check this solution and provide improvements to 
+            the code using the same format as before. Always stick to the same output format, Vulnerability Name, 
+            Possible Solution and Explanation as the sections. Keep the solution to a few lines of code, 
+            do not create class or method for that but give the lines of code"""
+        )
+        chain = prompt_template | self.llm | self.output_parser
+        return chain.invoke({"prev_sol":prev_sol})

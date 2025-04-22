@@ -50,7 +50,7 @@ class RAGPipeline:
 
         context = context+"\n\nStatic Error Descriptions\n"
         context = context +  self.document_processor.error_description_processing(desc_file, crysl_rule)
-        logger.info(context)
+        # logger.info(context)
 
         optimized_query = self.llm_handler.generate_query(context, vulnerable_code)
         logger.info(f"Optimized search query: {optimized_query}")
@@ -66,6 +66,8 @@ class RAGPipeline:
                 names_list.append(name.group(1))
                 links_list.append(link)
         logger.info("Created the links for the CWE references retrieved from DB search")
+
+        logger.info(f"CWE links - {links_list}")
 
         # Vulnerability analysis
         logger.info("Calling the analyze_vulnerability function which performs analysis of code snippet")

@@ -1,12 +1,11 @@
 import os
-import json
 from dotenv import load_dotenv
 from document_processor import DocumentProcessor
 from vector_store_manager import VectorStoreManager
 from llm_handler import LLMHandler
 from rag_pipeline import RAGPipeline
 import re
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from logger_config import get_logger
 
 logger = get_logger(__name__)
@@ -16,7 +15,7 @@ def ai_fix(code_input: str, rule: str, message: str) -> Dict[str, Any]:
 
     logger.info("Inside analysis function")
     CWE_File_Path = r"data/CWE"
-    json_string = None
+    sections = {}
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     if not OPENAI_API_KEY:
         logger.error("Error: OPENAI_API_KEY environment variable is not set. Please set it in the .env file.")
@@ -40,21 +39,33 @@ def ai_fix(code_input: str, rule: str, message: str) -> Dict[str, Any]:
     rag_pipeline = RAGPipeline(doc_processor, vs_manager, llm_handler)
 
     try:
-        logger.info("Fetch the error type and violated CrySL rule")
 
         logger.info("Starting the RAG pipeline by sending the code snippet")
         response, links, names = rag_pipeline.run(code_input, rule, message)
+        logger.info(response)
+        for i in range(0,2):
+            logger.info("Initial analysis complete, now performing more iterations")
+            response = llm_handler.analysis_iterations(response)
+            logger.info(response)
 
         cwe_links = [{"cwe": re.sub(r'.*/definitions/(\d+)\.html', r'CWE-\1', link), "name": name, "link": link} for link, name in zip(links, names)]
 
         logger.info("Using regex to clean the response from the pipeline and separate it into 3 sections")
-        pattern = r"^(Vulnerability Name|Possible Solution|Explanation):\s*([\s\S]*?)(?=^(Vulnerability Name|Possible Solution|Explanation):|$)"
-        matches = re.findall(pattern, response, re.MULTILINE)
-        sections = {}
-        for header, content, _ in matches:
-            key = header.lower().replace(" ", "_")
-            sections[key] = content.strip()
+        pattern = r"""
+        \*\*Vulnerability\s+Name:\*\*\s*(?P<vulnerability>.+?)\s*(?=\*\*Possible\s+Solution:\*\*)
+        \*\*Possible\s+Solution:\*\*\s*\n(?P<solution>```java[\s\S]+?```)\s*(?=\*\*Explanation:\*\*)
+        \*\*Explanation:\*\*\s*(?P<explanation>[\s\S]+)
+        """
 
+        regex = re.compile(pattern, re.VERBOSE | re.MULTILINE | re.DOTALL)
+        match = regex.search(response)
+
+        if match:
+            sections = {
+                "vulnerability_name": match.group("vulnerability").strip(),
+                "possible_solution": match.group("solution").strip(),
+                "explanation": match.group("explanation").strip()
+            }
         logger.info("Response is returned via the API")
 
         split_response = {

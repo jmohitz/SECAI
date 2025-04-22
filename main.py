@@ -16,7 +16,7 @@ def aifix():
         code = request_data["code"]
         rule = request_data["rule"]
         message = request_data["msg"]
-        logger.info("Fetch the Crypto Analysis JSON report, vulnerable code snippet, CrySL rule violated and error type")
+        logger.info("Fetch the vulnerable code snippet, CrySL rule violated and error type")
 
         if not code:
             logger.error("Error: Missing code snippet")
