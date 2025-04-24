@@ -3,6 +3,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from logger_config import get_logger
 
 logger = get_logger(__name__)
+# Vector Store Manager class is used to create or load the vector store
 class VectorStoreManager:
     def __init__(self, embedding_model="sentence-transformers/all-MiniLM-L6-v2"):
         self.embeddings = HuggingFaceEmbeddings(model_name=embedding_model)

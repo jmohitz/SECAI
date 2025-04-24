@@ -6,14 +6,16 @@ from langchain.docstore.document import Document
 from logger_config import get_logger
 
 logger = get_logger(__name__)
-
+# Document process class is for all the functions which are related to preprocessing documents and creating vector DB
 class DocumentProcessor:
     def __init__(self, chunk_size=1000, chunk_overlap=200):
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap
         )
-    
+
+    # Load and split function is used to create the vector database
+    # It creates the metadata for the CWE files which is used to create the embeddings
     def load_and_split(self, doc_dir: str):
         logger.info("Splitting up the CWE files and creating metadata for using in vector DB")
         documents = []
@@ -46,6 +48,8 @@ class DocumentProcessor:
         return filtered_results
     """
 
+    # Error Description Processing function is used to search through the static error descriptions
+    # and find the relevant one according to the crysl rule violated and the error type
     def error_description_processing(self, file_path: str, crysl_rule: str):
 
         error_type = file_path.split('/')[-1].split('.')[0]
