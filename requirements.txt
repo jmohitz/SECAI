@@ -9,3 +9,4 @@ huggingface-hub
 openai
 langchain-core
 flask-cors
+pydantic

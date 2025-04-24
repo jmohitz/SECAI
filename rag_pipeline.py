@@ -1,6 +1,7 @@
 import os
 import re
-from typing import Optional, Dict, Any, Tuple, List
+from typing import Tuple, List
+from llm_handler import VulnerabilityAnalysis
 from logger_config import get_logger
 
 logger = get_logger(__name__)
@@ -11,7 +12,7 @@ class RAGPipeline:
         self.vs_manager = vector_store_manager
         self.llm_handler = llm_handler
 
-    def run(self, vulnerable_code: str, rule: str, message: str)-> Tuple[str, List[str], List[str]]:
+    def run(self, vulnerable_code: str, rule: str, message: str)-> Tuple[VulnerabilityAnalysis, List[str], List[str]]:
 
         logger.info("Starting the run function to create context")
 
@@ -70,5 +71,12 @@ class RAGPipeline:
         logger.info(f"CWE links - {links_list}")
 
         # Vulnerability analysis
-        logger.info("Calling the analyze_vulnerability function which performs analysis of code snippet")
-        return self.llm_handler.analyze_vulnerability(context, vulnerable_code), links_list, names_list
+        logger.info("Calling the analyse_vulnerability function which performs analysis of code snippet")
+        response = self.llm_handler.analyse_vulnerability(context, vulnerable_code)
+        logger.info(vars(response))
+        for i in range(0,2):
+            logger.info("Initial analysis complete, now performing more iterations")
+            response = self.llm_handler.analysis_iterations(response)
+            logger.info(vars(response))
+
+        return response, links_list, names_list
