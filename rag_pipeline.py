@@ -1,7 +1,8 @@
 import os
 import re
 from typing import Tuple, List
-from llm_handler import VulnerabilityAnalysis
+from openai_LLM import VulnerabilityAnalysis
+from gemini_LLM import VulnerabilityAnalysis
 from logger_config import get_logger
 
 logger = get_logger(__name__)
@@ -14,9 +15,10 @@ class RAGPipeline:
     def __init__(self, document_processor, vector_store_manager, llm_handler):
         self.document_processor = document_processor
         self.vs_manager = vector_store_manager
-        self.llm_handler = llm_handler
+        self.openai_llm = llm_handler
+        self.gemini_llm = llm_handler
 
-    def run(self, vulnerable_code: str, rule: str, message: str)-> Tuple[VulnerabilityAnalysis, List[str], List[str]]:
+    def run(self, vulnerable_code: str, rule: str, message: str, llm_model:str)-> Tuple[VulnerabilityAnalysis, List[str], List[str]]:
 
         logger.info("Starting the run function to create context")
 
@@ -26,6 +28,8 @@ class RAGPipeline:
         error_type = rule.split(":")[1]
         crysl_rule = message.split(" ")[0]
         desc_file = f"{ErrorDesc_Path}/{error_type}.json"
+        results = None
+        response = None
 
         """
         context = context+"\n\nThe violated rules and messages\n"
@@ -57,10 +61,16 @@ class RAGPipeline:
         context = context +  self.document_processor.error_description_processing(desc_file, crysl_rule)
 
         # Searching in the vector db to find the relevant CWE ids
-        optimized_query = self.llm_handler.generate_query(context, vulnerable_code)
-        logger.info(f"Optimized search query: {optimized_query}")
-        results = self.vs_manager.vector_store.similarity_search(optimized_query, k=3)
-        logger.info("Vector DB search completed for relevant CWEs")
+        if llm_model == "OPENAI":
+            optimized_query = self.openai_llm.generate_query(context, vulnerable_code)
+            logger.info(f"Optimized search query: {optimized_query}")
+            results = self.vs_manager.vector_store.similarity_search(optimized_query, k=3)
+            logger.info("Vector DB search completed for relevant CWEs")
+        elif llm_model == "GEMINI":
+            optimized_query = self.gemini_llm.generate_query(context, vulnerable_code)
+            logger.info(f"Optimized search query: {optimized_query}")
+            results = self.vs_manager.vector_store.similarity_search(optimized_query, k=3)
+            logger.info("Vector DB search completed for relevant CWEs")
         links_list = []
         names_list = []
         for i, doc in enumerate(results):
@@ -74,12 +84,21 @@ class RAGPipeline:
 
         # Performing the vulnerability analysis via LLM
         # First the initial analysis and then 2 more iterations to improve the solutions
-        logger.info("Calling the analyse_vulnerability function which performs analysis of code snippet")
-        response = self.llm_handler.analyse_vulnerability(context, vulnerable_code)
-        logger.info(vars(response))
-        for i in range(0,2):
-            logger.info("Initial analysis complete, now performing more iterations")
-            response = self.llm_handler.analysis_iterations(response)
+        if llm_model == "OPENAI":
+            logger.info("Calling the analyse_vulnerability function which performs analysis of code snippet")
+            response = self.openai_llm.analyse_vulnerability(context, vulnerable_code)
             logger.info(vars(response))
+            for i in range(0,2):
+                logger.info("Initial analysis complete, now performing more iterations")
+                response = self.openai_llm.analysis_iterations(response)
+                logger.info(vars(response))
+        elif llm_model == "GEMINI":
+            logger.info("Calling the analyse_vulnerability function which performs analysis of code snippet")
+            response = self.gemini_llm.analyse_vulnerability(context, vulnerable_code)
+            logger.info(vars(response))
+            for i in range(0,2):
+                logger.info("Initial analysis complete, now performing more iterations")
+                response = self.gemini_llm.analysis_iterations(response)
+                logger.info(vars(response))
 
         return response, links_list, names_list

@@ -10,3 +10,4 @@ openai
 langchain-core
 flask-cors
 pydantic
+langchain-google-genai

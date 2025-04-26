@@ -16,14 +16,16 @@ def aifix():
         code = request_data["code"]
         rule = request_data["rule"]
         message = request_data["msg"]
-        logger.info("Fetch the vulnerable code snippet, CrySL rule violated and error type")
+        llm_model = request_data["llm_model"]
+        logger.info("Fetch the vulnerable code snippet, CrySL rule violated, error type and selected LLM model")
 
         if not code:
             logger.error("Error: Missing code snippet")
             return jsonify({"error": "Missing code snippet"}), 400
 
         logger.info("Data fetched, starting the analysis")
-        result = ai_fix(code, rule, message)
+        logger.info(f"{code}, {rule}, {message}, {llm_model}")
+        result = ai_fix(code, rule, message, llm_model)
 
         return jsonify(result)
 

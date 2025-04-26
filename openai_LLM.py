@@ -23,7 +23,7 @@ class LLMHandler:
 
     def __init__(self, api_key, model="gpt-4o-mini", temperature=0.1):
         self.llm = ChatOpenAI(
-            openai_api_key=api_key,
+            api_key=api_key,
             model=model,
             temperature=temperature
         )
