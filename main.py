@@ -24,8 +24,7 @@ def aifix():
             return jsonify({"error": "Missing code snippet"}), 400
 
         logger.info("Data fetched, starting the analysis")
-        logger.info(f"{code}, {rule}, {message}, {llm_model}")
-        result = ai_fix(code, rule, message, llm_model)
+        result = ai_fix(code, rule, message, llm_model.lower())
 
         return jsonify(result)
 

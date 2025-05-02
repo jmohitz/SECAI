@@ -2,20 +2,10 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
+from pydantic_models.VulnerabilityAnalysis import VulnerabilityAnalysis
 from logger_config import get_logger
 
 logger = get_logger(__name__)
-
-# VulnerabilityAnalysis is a Pydantic class which is used to specify how the output should be returned from the LLM
-# It makes it easier to create the sections of the response via the API
-# and we don't need to use regex to clean the output
-class VulnerabilityAnalysis(BaseModel):
-    vulnerability_name: str = Field(description="The name of the detected vulnerability, "
-                                                "typically a high-level identifier like 'Hardcoded Key Usage'")
-    possible_solution: str = Field(description="A secure code snippet that resolves the vulnerability.")
-    explanation: str = Field(description="A brief explanation of why the vulnerability is dangerous "
-                                         "and how the solution addresses it.")
 
 # LLM handler class handles the OpenAI LLM, defining the model to be used, temperature and API KEY
 # The functions in this class are related to the LLM prompting for generating query and analysis of the code snippet

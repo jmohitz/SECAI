@@ -2,8 +2,7 @@ import os
 from dotenv import load_dotenv
 from document_processor import DocumentProcessor
 from vector_store_manager import VectorStoreManager
-from openai_LLM import LLMHandler
-from gemini_LLM import GeminiLLM
+from llm_files import get_handler
 from rag_pipeline import RAGPipeline
 import re
 from typing import Dict, Any
@@ -19,6 +18,7 @@ load_dotenv()
 def ai_fix(code_input: str, rule: str, message: str, llm_model: str) -> Dict[str, Any]:
 
     logger.info("Inside analysis function")
+    """    
     #Check which LLM model is selected
     llm_handler = None
     if llm_model == "OPENAI":
@@ -35,11 +35,17 @@ def ai_fix(code_input: str, rule: str, message: str, llm_model: str) -> Dict[str
         if not GOOGLE_API_KEY:
             logger.error("Error: GOOGLE_API_KEY environment variable is not set. Please set it in the .env file.")
             raise ValueError("Error: GOOGLE_API_KEY environment variable is not set. Please set it in the .env file.")
+    """
+
+    handler = get_handler(llm_model,
+        api_key=os.getenv("OPENAI_API_KEY" if llm_model.upper() == "OPENAI" else "GOOGLE_API_KEY"),
+        temperature=0.1
+    )
 
     # Initializing objects for the other classes
     doc_processor = DocumentProcessor()
     vs_manager = VectorStoreManager()
-    rag_pipeline = RAGPipeline(doc_processor, vs_manager, llm_handler)
+    rag_pipeline = RAGPipeline(doc_processor, vs_manager, handler)
 
     # Checking if the vector stores exists, if not, it will be created
     CWE_File_Path = r"data/CWE"
