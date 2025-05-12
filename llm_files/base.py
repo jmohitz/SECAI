@@ -21,7 +21,7 @@ Based on this information, give your analysis, and provide a secure code snippet
 Return only:
 Vulnerability Name: [Name]
 Possible Solution: [Few lines of code]
-Explanation: [Text explanation of the issue and the solution, around 150 words]
+Explanation: [Text explanation of the issue and the solution, maximum 150 words]
 IMPORTANT: Do not change the output format, and ensure the possible solution is always a few lines of code
 IMPORTANT: The solution should just be the code snippet fixing the logic, do not add import statements, create
 functions or try-catch blocks
@@ -42,7 +42,7 @@ Review it as a JCA expert. Improve the code and keep the same output format:
 Make sure to expand on the solution and improve it
 Vulnerability Name: [Name]
 Possible Solution: [Few lines of code]
-Explanation: [Text explanation of the issue and the solution, around 150 words]
+Explanation: [Text explanation of the issue and the solution, maximum 150 words]
 
 IMPORTANT: Do not change the output format, and ensure the possible solution is always a few lines of code
 IMPORTANT: The solution should just be the code snippet fixing the logic, do not add import statements, create

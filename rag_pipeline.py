@@ -16,7 +16,7 @@ class RAGPipeline:
         self.vs_manager = vector_store_manager
         self.llm = llm_handler
 
-    def run(self, vulnerable_code: str, rule: str, message: str, llm_model:str)-> Tuple[VulnerabilityAnalysis, List[str], List[str]]:
+    def run(self, vulnerable_code: str, rule: str, message: str, iterations: int)-> Tuple[VulnerabilityAnalysis, List[str], List[str]]:
 
         logger.info("Starting the run function to create context")
 
@@ -26,8 +26,6 @@ class RAGPipeline:
         error_type = rule.split(":")[1]
         crysl_rule = message.split(" ")[0]
         desc_file = f"{ErrorDesc_Path}/{error_type}.json"
-        results = None
-        response = None
 
         """
         context = context+"\n\nThe violated rules and messages\n"
@@ -57,6 +55,7 @@ class RAGPipeline:
         # Adding the static error description according to crysl rule and error type into the context
         context = context+"\n\nStatic Error Descriptions\n"
         context = context +  self.document_processor.error_description_processing(desc_file, crysl_rule)
+        logger.info(context)
 
         # Searching in the vector db to find the relevant CWE ids
         query = self.llm.build_query(vulnerable_code, context)
@@ -74,11 +73,11 @@ class RAGPipeline:
         logger.info(f"CWE links - {links_list}\n CWE names - {names_list}")
 
         # Performing the vulnerability analysis via LLM
-        # First the initial analysis and then 2 more iterations to improve the solutions
+        # First the initial analysis and then more iterations to improve the solutions
         logger.info("Calling the analyse_vulnerability function which performs analysis of code snippet")
         response = self.llm.analyse_vulnerability(context, vulnerable_code)
         logger.info(vars(response))
-        for i in range(0,2):
+        for i in range(0,iterations-1):
             logger.info("Initial analysis complete, now performing more iterations")
             response = self.llm.analysis_iterations(response)
             logger.info(vars(response))

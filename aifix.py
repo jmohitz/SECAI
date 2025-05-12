@@ -15,7 +15,7 @@ load_dotenv()
 # AI Fix function is the high level function which initializes the objects of the other classes
 # It also creates or loads the vector store as needed and runs the pipeline, fetches the results
 # and then creates the API response which is to be sent
-def ai_fix(code_input: str, rule: str, message: str, llm_model: str) -> Dict[str, Any]:
+def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations: int) -> Dict[str, Any]:
 
     logger.info("Inside analysis function")
     """    
@@ -62,7 +62,7 @@ def ai_fix(code_input: str, rule: str, message: str, llm_model: str) -> Dict[str
     # Starting the pipeline, taking all content and returning the response
     try:
         logger.info("Starting the RAG pipeline by sending the code snippet")
-        response, links, names = rag_pipeline.run(code_input, rule, message, llm_model)
+        response, links, names = rag_pipeline.run(code_input, rule, message, iterations)
 
         cwe_links = [{"cwe": re.sub(r'.*/definitions/(\d+)\.html', r'CWE-\1', link), "name": name, "link": link} for
                      link, name in zip(links, names)]
