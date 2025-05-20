@@ -7,6 +7,7 @@ from rag_pipeline import RAGPipeline
 import re
 from typing import Dict, Any
 from logger_config import get_logger
+from ccrun import CCRUN
 
 logger = get_logger(__name__)
 load_dotenv()
@@ -15,39 +16,17 @@ load_dotenv()
 # AI Fix function is the high level function which initializes the objects of the other classes
 # It also creates or loads the vector store as needed and runs the pipeline, fetches the results
 # and then creates the API response which is to be sent
-def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations: int) -> Dict[str, Any]:
-
+def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations: int, iterations_cc: int = 2) -> Dict[str, Any]:
     logger.info("Inside analysis function")
-    """    
-    #Check which LLM model is selected
-    llm_handler = None
-    if llm_model == "OPENAI":
-        OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-        llm_handler = LLMHandler(api_key=OPENAI_API_KEY)
-        logger.info("OPENAI")
-        if not OPENAI_API_KEY:
-            logger.error("Error: OPENAI_API_KEY environment variable is not set. Please set it in the .env file.")
-            raise ValueError("Error: OPENAI_API_KEY environment variable is not set. Please set it in the .env file.")
-    elif llm_model == "GEMINI":
-        GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-        llm_handler = GeminiLLM(api_key=GOOGLE_API_KEY)
-        logger.info("GEMINI")
-        if not GOOGLE_API_KEY:
-            logger.error("Error: GOOGLE_API_KEY environment variable is not set. Please set it in the .env file.")
-            raise ValueError("Error: GOOGLE_API_KEY environment variable is not set. Please set it in the .env file.")
-    """
-
     handler = get_handler(llm_model,
         api_key=os.getenv("OPENAI_API_KEY" if llm_model.upper() == "OPENAI" else "GOOGLE_API_KEY"),
         temperature=0.1
     )
 
-    # Initializing objects for the other classes
     doc_processor = DocumentProcessor()
     vs_manager = VectorStoreManager()
     rag_pipeline = RAGPipeline(doc_processor, vs_manager, handler)
 
-    # Checking if the vector stores exists, if not, it will be created
     CWE_File_Path = r"data/CWE"
     if not os.path.exists("faiss_index"):
         logger.info("Index does not exist, creating one")
@@ -59,10 +38,14 @@ def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations:
         logger.info("Index exists, loading vector store")
         vs_manager.load_store()
 
-    # Starting the pipeline, taking all content and returning the response
     try:
         logger.info("Starting the RAG pipeline by sending the code snippet")
-        response, links, names = rag_pipeline.run(code_input, rule, message, iterations)
+        response, links, names, java_code = rag_pipeline.run(code_input, rule, message, iterations)
+
+        ccrunner = CCRUN(handler)
+        final_code, verified = ccrunner.iterate_until_verified(java_code, max_iterations=iterations_cc)
+        secure_snippet = handler.extract_fixed_snippet(code_input, final_code)
+
 
         cwe_links = [{"cwe": re.sub(r'.*/definitions/(\d+)\.html', r'CWE-\1', link), "name": name, "link": link} for
                      link, name in zip(links, names)]
@@ -70,10 +53,14 @@ def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations:
         logger.info("Response is returned via the API")
         return {
             "Vulnerability_name": response.vulnerability_name,
-            "Possible_solution": response.possible_solution,
+            #"Possible_solution": response.possible_solution,
             "Explanation": response.explanation,
-            "CWE_references": cwe_links
+            "CWE_references": cwe_links,
+            "CogniCrypt_Verified": verified,
+            "Final_Secure_Code_Snippet": secure_snippet
         }
 
     except Exception as e:
+        logger.error(f"Analysis failed: {str(e)}")
         return {"error": f"Analysis failed: {str(e)}"}
+

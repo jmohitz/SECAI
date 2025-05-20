@@ -18,6 +18,8 @@ def aifix():
         message = request_data.get("msg")
         llm_model = request_data.get("llm_model", "openai")
         iterations = request_data.get("iterations", 3)
+        iterations_cc = request_data.get("iterations", 2)  # Use 2 if not provided
+
         logger.info("Fetch the vulnerable code snippet, CrySL rule violated, error type, selected LLM model and "
                     "number of iterations")
 
@@ -26,7 +28,7 @@ def aifix():
             return jsonify({"error": "Missing code snippet"}), 400
 
         logger.info("Data fetched, starting the analysis")
-        result = ai_fix(code, rule, message, llm_model.lower(), iterations)
+        result = ai_fix(code, rule, message, llm_model.lower(), iterations, iterations_cc)
 
         return jsonify(result)
 
