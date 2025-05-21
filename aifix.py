@@ -16,7 +16,7 @@ load_dotenv()
 # AI Fix function is the high level function which initializes the objects of the other classes
 # It also creates or loads the vector store as needed and runs the pipeline, fetches the results
 # and then creates the API response which is to be sent
-def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations: int, iterations_cc: int = 2) -> Dict[str, Any]:
+def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations_cc: int) -> Dict[str, Any]:
     logger.info("Inside analysis function")
     handler = get_handler(llm_model,
         api_key=os.getenv("OPENAI_API_KEY" if llm_model.upper() == "OPENAI" else "GOOGLE_API_KEY"),
@@ -40,11 +40,12 @@ def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations:
 
     try:
         logger.info("Starting the RAG pipeline by sending the code snippet")
-        response, links, names, java_code = rag_pipeline.run(code_input, rule, message, iterations)
+        response, links, names, java_code = rag_pipeline.run(code_input, rule, message)
 
         ccrunner = CCRUN(handler)
         final_code, verified = ccrunner.iterate_until_verified(java_code, max_iterations=iterations_cc)
         secure_snippet = handler.extract_fixed_snippet(code_input, final_code)
+        final_explanation = handler.final_explanation(code_input, final_code)
 
 
         cwe_links = [{"cwe": re.sub(r'.*/definitions/(\d+)\.html', r'CWE-\1', link), "name": name, "link": link} for
@@ -54,7 +55,7 @@ def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations:
         return {
             "Vulnerability_name": response.vulnerability_name,
             #"Possible_solution": response.possible_solution,
-            "Explanation": response.explanation,
+            "Explanation": final_explanation,
             "CWE_references": cwe_links,
             "CogniCrypt_Verified": verified,
             "Final_Secure_Code_Snippet": secure_snippet

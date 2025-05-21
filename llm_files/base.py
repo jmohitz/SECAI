@@ -29,32 +29,32 @@ Also do not add comments inside the possible solution, but integrate the logic b
 """
 )
 
-Iterations_Prompt = ChatPromptTemplate.from_template(
-"""
-As a Java Cryptography Architecture (JCA) developer, this is the output you provided
-to solve my vulnerability:
+# Iterations_Prompt = ChatPromptTemplate.from_template(
+# """
+# As a Java Cryptography Architecture (JCA) developer, this is the output you provided
+# to solve my vulnerability:
 
-Vulnerability Name: {vulnerability_name}
-Possible Solution: {possible_solution}
-Explanation: {explanation}
+# Vulnerability Name: {vulnerability_name}
+# Possible Solution: {possible_solution}
+# Explanation: {explanation}
 
-Review it as a JCA expert. Improve the code and keep the same output format:
-Make sure to expand on the solution and improve it
-Vulnerability Name: [Name]
-Possible Solution: [Few lines of code]
-Explanation: [Text explanation of the issue and the solution, maximum 150 words]
+# Review it as a JCA expert. Improve the code and keep the same output format:
+# Make sure to expand on the solution and improve it
+# Vulnerability Name: [Name]
+# Possible Solution: [Few lines of code]
+# Explanation: [Text explanation of the issue and the solution, maximum 150 words]
 
-IMPORTANT: Do not change the output format, and ensure the possible solution is always a few lines of code
-IMPORTANT: The solution should just be the code snippet fixing the logic, do not add import statements, create
-functions or try-catch blocks
-Also do not add comments inside the possible solution, but integrate the logic behind them in the explanation section
-"""
-)
+# IMPORTANT: Do not change the output format, and ensure the possible solution is always a few lines of code
+# IMPORTANT: The solution should just be the code snippet fixing the logic, do not add import statements, create
+# functions or try-catch blocks
+# Also do not add comments inside the possible solution, but integrate the logic behind them in the explanation section
+# """
+# )
 CogniCrypt_Prompt = ChatPromptTemplate.from_template(
 """
 You are a Java Cryptography Architecture (JCA) expert.
 
-Here is a secure solution for a vulnerability:
+You had provided me with this code snippet after the user had given you an insecure code snippet. Here is a secure solution for a vulnerability you provided:
 {possible_solution}
 
 Use this logic to generate a full self-contained Java class named `Main`. 
@@ -101,6 +101,20 @@ functions or try-catch blocks
 Also do not add comments inside the possible solution, but integrate the logic behind them in the explanation section
 """
 )
+FinalExplanation_Prompt = ChatPromptTemplate.from_template(
+"""
+You were given this insecure Java code snippet:
+
+{original_code}
+
+After applying multiple fixes and verifying it with CogniCrypt, this is the final secure version:
+
+{final_code}
+
+Explain the vulnerability and how the final code fixes it. Use clear, technical language, max 150 words.
+Do not include the code in your answer — only return the explanation.
+"""
+)
 
 class BaseLLM:
     def __init__(self, llm):
@@ -119,10 +133,10 @@ class BaseLLM:
         chain = CodeAnalysis_Prompt | self.llm.with_structured_output(VulnerabilityAnalysis)
         return chain.invoke({"context": context, "question": question})
 
-    def analysis_iterations(self, prev_sol: VulnerabilityAnalysis) -> VulnerabilityAnalysis:
-        logger.info("Performing another analysis round with the LLM")
-        chain = Iterations_Prompt| self.llm.with_structured_output(VulnerabilityAnalysis)
-        return chain.invoke(prev_sol.model_dump())
+    # def analysis_iterations(self, prev_sol: VulnerabilityAnalysis) -> VulnerabilityAnalysis:
+    #     logger.info("Performing another analysis round with the LLM")
+    #     chain = Iterations_Prompt| self.llm.with_structured_output(VulnerabilityAnalysis)
+    #     return chain.invoke(prev_sol.model_dump())
     
     def cogniCrypt_analysis(self, possible_solution: str) -> str:
         logger.info("Prompting the LLM to wrap the solution into full Java code for CogniCrypt testing")
@@ -144,6 +158,15 @@ class BaseLLM:
             "original_code": original_code,
             "full_java_code": full_java_code
         }).strip()
+    
+    def final_explanation(self, original_code: str, final_code: str) -> str:
+        logger.info("Prompting LLM for final explanation based on verified secure code")
+        chain = FinalExplanation_Prompt | self.llm | self.output_parser
+        return chain.invoke({
+            "original_code": original_code,
+            "final_code": final_code
+        }).strip()
+
 
 
 

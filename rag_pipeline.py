@@ -16,7 +16,7 @@ class RAGPipeline:
         self.vs_manager = vector_store_manager
         self.llm = llm_handler
 
-    def run(self, vulnerable_code: str, rule: str, message: str, iterations: int)-> Tuple[VulnerabilityAnalysis, List[str], List[str], str]:
+    def run(self, vulnerable_code: str, rule: str, message: str)-> Tuple[VulnerabilityAnalysis, List[str], List[str], str]:
 
         logger.info("Starting the run function to create context")
 
@@ -58,10 +58,10 @@ class RAGPipeline:
         logger.info("Calling the analyse_vulnerability function which performs analysis of code snippet")
         response = self.llm.analyse_vulnerability(context, vulnerable_code)
         logger.info(vars(response))
-        for i in range(0,iterations-1):
-            logger.info("Initial analysis complete, now performing more iterations")
-            response = self.llm.analysis_iterations(response)
-            logger.info(vars(response))
+        # for i in range(0,iterations-1):
+        #     logger.info("Initial analysis complete, now performing more iterations")
+        #     response = self.llm.analysis_iterations(response)
+        #     logger.info(vars(response))
         response1 = self.llm.cogniCrypt_analysis(response.possible_solution)
         logger.info(f"Generated Java class for CogniCrypt:\n{response1}")
         # Assuming response1 is the raw Java code string returned from LLM

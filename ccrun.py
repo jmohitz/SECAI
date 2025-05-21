@@ -58,7 +58,7 @@ class CCRUN:
 
             # Step 5: Check SARIF results
             if not self.sarif_has_violations(sarif_path):
-                logger.info(f"[Iteration {i + 1}]  No violations found — CogniCrypt verification successful")
+                logger.info(f"[Iteration {i + 1}]  No violations found CogniCrypt verification successful")
                 return current_solution, True
 
             logger.info(f"[Iteration {i + 1}]  Violations detected — passing SARIF to LLM for refinement")
