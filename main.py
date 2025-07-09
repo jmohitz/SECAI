@@ -2,33 +2,50 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from aifix import ai_fix
 from logger_config import get_logger
+import app_db
 
+app_db.init_db()
 logger = get_logger(__name__)
 
 app = Flask(__name__)
 CORS(app)
+
 @app.route('/aifix', methods=['POST'])
 def aifix():
     logger.info("Post API function to start the AI Fix analysis")
     try:
         request_data = request.get_json()
-        # json_data = request_data["json_file"]
         code = request_data.get("code")
         rule = request_data.get("rule")
         message = request_data.get("msg")
         llm_model = request_data.get("llm_model", "openai")
-        # iterations = request_data.get("iterations",1)
-        iterations_cc = request_data.get("iterations",2)  # Use 2 if not provided
+        iterations_cc = request_data.get("iterations", 2)
 
-        logger.info("Fetch the vulnerable code snippet, CrySL rule violated, error type, selected LLM model and "
-                    "number of iterations")
+        logger.info("Fetched the vulnerable code snippet, CrySL rule violated, error type, selected LLM model and number of iterations")
 
         if not code:
             logger.error("Error: Missing code snippet")
             return jsonify({"error": "Missing code snippet"}), 400
 
-        logger.info("Data fetched, starting the analysis")
+        input_data = {
+            "code": code,
+            "rule": rule,
+            "msg": message,
+            "llm_model": llm_model,
+            "iterations": iterations_cc
+        }
+
+        # DB Cache Lookup
+        cached = app_db.get_record_by_input(input_data)
+        if cached is not None:
+            logger.info("Returning cached LLM result from DB.")
+            return jsonify(cached["output"])
+
+        logger.info("Data not found in cache, starting the analysis")
         result = ai_fix(code, rule, message, llm_model.lower(), iterations_cc)
+
+        # SAVE INPUT & OUTPUT TO DB HERE (will only save if unique due to DB constraint)
+        app_db.save_analysis_record(input_data, result)
 
         return jsonify(result)
 

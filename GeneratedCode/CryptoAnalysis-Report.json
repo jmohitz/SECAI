@@ -5,11 +5,11 @@
       "errorCounts" : { },
       "statistics" : {
         "entryPoints" : 3,
-        "analysisTime" : "282.5 ms",
-        "edgesInCallGraph" : 149,
-        "callGraphConstructionTime" : "887.1 ms",
-        "typestateAnalysisTime" : "164.9 ms",
-        "reachableMethods" : 88
+        "analysisTime" : "671.4 ms",
+        "edgesInCallGraph" : 431,
+        "callGraphConstructionTime" : "1.331 s",
+        "typestateAnalysisTime" : "449.0 ms",
+        "reachableMethods" : 192
       }
     },
     "files" : { },

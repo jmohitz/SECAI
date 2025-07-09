@@ -1,30 +1,44 @@
+import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
-import java.security.NoSuchAlgorithmException;
+import javax.crypto.spec.GCMParameterSpec;
+import java.security.SecureRandom;
 
 public class Main {
-
     public static void main(String[] args) {
         try {
-            KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-            keyGenerator.init(256);
-            SecretKey secretKey = keyGenerator.generateKey();
-            SecretKeySpec secretKeySpec = new SecretKeySpec(secretKey.getEncoded(), "AES");
+            // Generate a secret key for AES
+            KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+            keyGen.init(256); // Use 256-bit AES
+            SecretKey key = keyGen.generateKey();
 
-            System.out.println("Secret Key (Hex): " + bytesToHex(secretKeySpec.getEncoded()));
+            // Initialize the cipher for encryption
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            byte[] iv = new byte[12];
+            SecureRandom random = new SecureRandom();
+            random.nextBytes(iv);
+            GCMParameterSpec gcmSpec = new GCMParameterSpec(128, iv);
+            cipher.init(Cipher.ENCRYPT_MODE, key, gcmSpec);
 
-        } catch (NoSuchAlgorithmException e) {
-            System.err.println("Error: AES algorithm not available.");
+            // Example data to encrypt
+            byte[] data = "Sensitive data".getBytes();
+
+            // Perform encryption
+            byte[] encryptedData = cipher.doFinal(data);
+
+            // Output encrypted data
+            System.out.println("Encrypted Data: " + bytesToHex(encryptedData));
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    // Helper method to convert byte array to hex string
     private static String bytesToHex(byte[] bytes) {
-        StringBuilder result = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
         for (byte b : bytes) {
-            result.append(String.format("%02x", b));
+            sb.append(String.format("%02x", b));
         }
-        return result.toString();
+        return sb.toString();
     }
 }
