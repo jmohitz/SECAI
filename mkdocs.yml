@@ -1,0 +1,57 @@
+site_name: "SECAI Documentation"
+site_url: https://jmohitz.github.io/SECAI/
+repo_url: https://github.com/jmohitz/SECAI/
+edit_uri: edit/develop/docs/
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: installation.md
+      - First Steps: getting-started.md
+      - Example Analyses: examples.md
+
+theme:
+  name: material
+  custom_dir: overrides
+  logo: ./img/SecAILogo.png
+#  favicon: ./img/icon.png
+  palette:
+    # —— Light mode  ——————————————————————————
+    - scheme: default               # Material’s default light palette
+      primary: "white"            # pure white header / primary surfaces
+      accent:  "orange"             # links, buttons, focus rings
+      toggle:
+        icon:  material/weather-night
+        name:  Switch to dark mode
+
+    # —— Dark mode  ——————————————————————————
+    - scheme: slate                 # Material’s built‑in dark scheme
+      primary: "grey"            # (deep‑ish) orange header in dark mode
+      accent:  "orange"
+      toggle:
+        icon:  material/weather-sunny
+        name:  Switch to light mode
+  features:
+    - navigation.sections
+
+extra_css:
+  - styles/footer.css
+  - styles/logo.css
+
+
+plugins:
+  - search
+
+markdown_extensions:
+  - pymdownx.highlight:
+      linenums: true
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.details
+  - admonition
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra:
+  version:
+    provider: mike

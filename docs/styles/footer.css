@@ -1,0 +1,32 @@
+.custom-footer {
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+  background: var(--md-default-bg-color--lighter);
+  width: 100%;
+}
+
+.footer-inner {
+  max-width: 960px;             
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;                 
+  flex-wrap: wrap;              
+
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--md-default-fg-color);
+}
+
+.footer-logo img {
+  height: 32px;                 
+  width: auto;
+  vertical-align: middle;
+}
+
+
+[data-md-color-scheme="slate"] .footer-logo img {
+  filter: brightness(0.92) contrast(1.1);
+}
