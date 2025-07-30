@@ -44,8 +44,9 @@ def aifix():
         logger.info("Data not found in cache, starting the analysis")
         result = ai_fix(code, rule, message, llm_model.lower(), iterations_cc)
 
-        # SAVE INPUT & OUTPUT TO DB HERE (will only save if unique due to DB constraint)
-        app_db.save_analysis_record(input_data, result)
+        # Only save to DB if result is not an error
+        if not (isinstance(result, dict) and "error" in result):
+            app_db.save_analysis_record(input_data, result)
 
         return jsonify(result)
 
