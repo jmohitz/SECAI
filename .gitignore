@@ -6,3 +6,6 @@ aifix.log
 *.pyd
 __pycache__/
 ollama.py
+Main.class
+Main.jar
+Main.java

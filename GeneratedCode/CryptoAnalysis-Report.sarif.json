@@ -22,12 +22,12 @@
         },
         "totalRulesCount" : 51,
         "statistics" : {
-          "entryPoints" : 2,
-          "analysisTime" : "1.100 s",
-          "edgesInCallGraph" : 483,
-          "callGraphConstructionTime" : "1.050 s",
-          "typestateAnalysisTime" : "630.3 ms",
-          "reachableMethods" : 181
+          "entryPoints" : 3,
+          "analysisTime" : "1.235 s",
+          "edgesInCallGraph" : 492,
+          "callGraphConstructionTime" : "939.1 ms",
+          "typestateAnalysisTime" : "576.3 ms",
+          "reachableMethods" : 186
         }
       }
     },
