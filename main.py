@@ -19,7 +19,7 @@ def aifix():
         rule = request_data.get("rule")
         message = request_data.get("msg")
         llm_model = request_data.get("llm_model", "openai")
-        iterations_cc = request_data.get("iterations", 2)
+        iterations_cc = request_data.get("iterations", 3)
 
         logger.info("Fetched the vulnerable code snippet, CrySL rule violated, error type, selected LLM model and number of iterations")
 

@@ -3,13 +3,16 @@ from enum import Enum, auto
 class LLMName(Enum):
     OPENAI = auto()
     GEMINI = auto()
+    OLLAMA = auto()
 
 from .openai import OpenAIHandler
 from .gemini import GeminiHandler
+from .ollama import OllamaHandler
 
 _LOOKUP = {
     LLMName.OPENAI: OpenAIHandler,
     LLMName.GEMINI: GeminiHandler,
+    LLMName.OLLAMA: OllamaHandler
 }
 
 def get_handler(name: str | LLMName, **options):

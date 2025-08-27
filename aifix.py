@@ -5,23 +5,55 @@ from vector_store_manager import VectorStoreManager
 from llm_files import get_handler
 from rag_pipeline import RAGPipeline
 import re
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 from logger_config import get_logger
 from ccrun import CCRUN
 
 logger = get_logger(__name__)
 load_dotenv()
 
+def _parse_provider_and_model(s: str) -> Tuple[str, str | None]:
+    """
+    Accepts:
+      - "OPENAI"                      -> ("OPENAI", None)
+      - "GEMINI"                      -> ("GEMINI", None)
+      - "OPENAI:gpt-4o-mini"          -> ("OPENAI", "gpt-4o-mini")
+      - "GEMINI:gemini-1.5-pro"       -> ("GEMINI", "gemini-2.5")
+      - case-insensitive provider
+    """
+    if not s:
+        raise ValueError("llm_model (provider) must be specified: OPENAI | GEMINI | OLLAMA[:model]")
+    parts = s.split(":", 1)
+    provider = parts[0].strip().upper()
+    model = parts[1].strip() if len(parts) == 2 and parts[1].strip() else None
+    return provider, model
 
-# AI Fix function is the high level function which initializes the objects of the other classes
-# It also creates or loads the vector store as needed and runs the pipeline, fetches the results
-# and then creates the API response which is to be sent
+
 def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations_cc: int) -> Dict[str, Any]:
     logger.info("Inside analysis function")
-    handler = get_handler(llm_model,
-        api_key=os.getenv("OPENAI_API_KEY" if llm_model.upper() == "OPENAI" else "GOOGLE_API_KEY"),
+
+    provider, selected_model = _parse_provider_and_model(llm_model)
+    logger.info(f"[ai_fix] Provider requested: {provider}, Model arg: {selected_model or 'None'}")
+    # Choose the right API key env var by provider (OPENAI / GEMINI / OLLAMA)
+    if provider == "OPENAI":
+        api_key_env = "OPENAI_API_KEY"
+    elif provider == "GEMINI":
+        api_key_env = "GOOGLE_API_KEY"
+    elif provider == "OLLAMA":
+        api_key_env = None  # local, no key by default
+    else:
+        raise ValueError(f"Unsupported provider: {provider}")
+
+    handler = get_handler(
+        provider,
+        # API key only when needed
+        **({"api_key": os.getenv(api_key_env)} if api_key_env else {}),
+        # Model flows into OpenAIHandler/GeminiHandler/OllamaHandler; each resolves env defaults too
+        model=selected_model,
         temperature=0.1
     )
+    logger.info(f"[ai_fix] Handler initialized for provider={provider}, "
+            f"model={getattr(handler.llm, 'model', 'unknown')}")
 
     doc_processor = DocumentProcessor()
     vs_manager = VectorStoreManager()
@@ -47,14 +79,14 @@ def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations_
         secure_snippet = handler.extract_fixed_snippet(code_input, final_code)
         final_explanation = handler.final_explanation(code_input, final_code)
 
-
-        cwe_links = [{"cwe": re.sub(r'.*/definitions/(\d+)\.html', r'CWE-\1', link), "name": name, "link": link} for
-                     link, name in zip(links, names)]
+        cwe_links = [
+            {"cwe": re.sub(r'.*/definitions/(\d+)\.html', r'CWE-\1', link), "name": name, "link": link}
+            for link, name in zip(links, names)
+        ]
 
         logger.info("Response is returned via the API")
         return {
             "Vulnerability_name": response.vulnerability_name,
-            #"Possible_solution": response.possible_solution,
             "Explanation": final_explanation,
             "CWE_references": cwe_links,
             "CogniCrypt_Verified": verified,
@@ -64,4 +96,3 @@ def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations_
     except Exception as e:
         logger.error(f"Analysis failed: {str(e)}")
         return {"error": f"Analysis failed: {str(e)}"}
-

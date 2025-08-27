@@ -7,6 +7,8 @@ from logger_config import get_logger
 from typing import Tuple
 import json
 import glob
+from utils.code_sanitizer import extract_java_source
+
 
 logger = get_logger(__name__)
 
@@ -60,7 +62,7 @@ class CCRUN:
             logger.info(f"[Iteration {i + 1}]  Running CogniCrypt...")
 
             run_cognicrypt(
-                scanner_jar_path=r"CCJar/HeadlessJavaScanner-4.2.1-jar-with-dependencies.jar",
+                scanner_jar_path=r"CCJar/HeadlessJavaScanner-5.0.1-SNAPSHOT-jar-with-dependencies.jar",
                 app_jar_path=jar_path,
                 rules_dir=r"JCA-CrySL-rules",
                 report_format="SARIF",
@@ -104,20 +106,22 @@ class CCRUN:
         return current_solution, False
 
 def save_llm_output(code_str: str, filepath: str) -> str:
-    with open(filepath, "w") as f:
+    code_str = extract_java_source(code_str)
+    with open(filepath, "w", encoding="utf-8", newline="\n") as f:
         f.write(code_str)
     return filepath
 
+
 def compile_java(filepath: str) -> str:
-    compile_result = subprocess.run(["javac", filepath], capture_output=True, text=True)
+    compile_result = subprocess.run(["javac", "-encoding", "UTF-8", filepath],
+                                    capture_output=True, text=True)
     if compile_result.returncode != 0:
         raise Exception(f"Compilation failed:\n{compile_result.stderr}")
-
     class_file = filepath.replace(".java", ".class")
     if not os.path.exists(class_file):
         raise FileNotFoundError(f"Expected .class file not found: {class_file}")
-
     return class_file
+
 
 def convert_to_jar(java_class_path: str) -> str:
     jar_file_name = java_class_path.replace(".class", ".jar")

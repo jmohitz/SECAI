@@ -5,3 +5,4 @@ aifix.log
 *.pyo
 *.pyd
 __pycache__/
+ollama.py
