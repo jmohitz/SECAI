@@ -1,70 +1,164 @@
 import os
 import re
-from typing import Tuple, List
-from pydantic_models.VulnerabilityAnalysis import VulnerabilityAnalysis
+import pandas as pd
+from typing import Tuple, List, Set
 from logger_config import get_logger
+from pydantic_models.VulnerabilityAnalysis import VulnerabilityAnalysis
 
 logger = get_logger(__name__)
 
-# RAG Pipeline class contains the run functions, whose purpose is to create the context which the LLM will use
-# to analyse the code snippet. The relevant violated CrySL rule, along with the static description of the issue is
-# provided as context.
-# This function also performs the vector db similarity search to find the relevant CWEs using the LLM generated prompt
+# CSV path for Excel-based CWE mapping
+CSV_PATH = "CWE_Mapping/CWE_Mapping.csv"
+
+class CWEMapper:
+    def __init__(self):
+        try:
+            if not os.path.exists(CSV_PATH):
+                raise FileNotFoundError(f"CWE mapping file not found: {CSV_PATH}")
+            
+            self.mapping_df = pd.read_csv(CSV_PATH)
+            
+            # Validate required columns
+            required_columns = ["CrySL File", "CWE-ID(s)"]
+            missing_columns = [col for col in required_columns if col not in self.mapping_df.columns]
+            if missing_columns:
+                raise ValueError(f"Missing required columns in CSV: {missing_columns}")
+            
+            self.mapping_df.fillna("", inplace=True)
+            logger.info(f"Loaded CWE mapping from {CSV_PATH} with {len(self.mapping_df)} rows.")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize CWE mapper: {e}")
+            raise
+
+    def get_static_cwe_ids(self, crysl_rule: str) -> Set[str]:
+        logger.debug(f"Looking up static CWE IDs for CrySL rule: {crysl_rule}")
+        
+        # Add .crysl extension if not present
+        rule_filename = crysl_rule if crysl_rule.endswith('.crysl') else f"{crysl_rule}.crysl"
+        
+        # Filter by CrySL File column (FIXED)
+        filtered = self.mapping_df[
+            self.mapping_df["CrySL File"].str.strip().str.lower() == rule_filename.strip().lower()
+        ]
+        
+        cwe_ids = set()
+        for _, row in filtered.iterrows():
+            cwe = row["CWE-ID(s)"]  # FIXED: Use correct column name
+            if pd.notna(cwe):
+                # Handle both single CWE-IDs and comma-separated lists
+                cwe_ids.update([c.strip() for c in str(cwe).split(",") if c.strip()])
+        
+        if cwe_ids:
+            logger.info(f"Static CWE IDs found for {crysl_rule}: {cwe_ids}")
+        else:
+            logger.warning(f"No static CWE IDs found for {crysl_rule}")
+        
+        return cwe_ids
+
 class RAGPipeline:
     def __init__(self, document_processor, vector_store_manager, llm_handler):
         self.document_processor = document_processor
         self.vs_manager = vector_store_manager
         self.llm = llm_handler
 
-    def run(self, vulnerable_code: str, rule: str, message: str)-> Tuple[VulnerabilityAnalysis, List[str], List[str], str]:
-
+    def run(self, vulnerable_code: str, rule: str, message: str) -> Tuple[VulnerabilityAnalysis, List[str], List[str], str]:
         logger.info("Starting the run function to create context")
-
+        
         CryslRules_Path = r"data/Crysl_Rules"
         ErrorDesc_Path = r"data/CogniCrypt_ErrorDesc"
+        
         context = ""
         error_type = rule.split(":")[1]
         crysl_rule = message.split(" ")[0]
         desc_file = f"{ErrorDesc_Path}/{error_type}.json"
 
-        # Adding the specific violated crysl rule into the context
-        path = os.path.join(CryslRules_Path, crysl_rule+".txt")
-        if os.path.isfile(path):
-            with open(path, 'r', encoding='utf-8') as file:
-                context = context + f"\n\nCrySL Rule: {crysl_rule}\n{file.read()}"
+        # Load CrySL rule file
+        rule_path = os.path.join(CryslRules_Path, crysl_rule + ".txt")
+        if os.path.isfile(rule_path):
+            with open(rule_path, 'r', encoding='utf-8') as file:
+                context += f"\n\nCrySL Rule: {crysl_rule}\n{file.read()}"
 
-        # Adding the static error description according to crysl rule and error type into the context
-        context = context+"\n\nStatic Error Descriptions\n"
-        context = context +  self.document_processor.error_description_processing(desc_file, crysl_rule)
-        logger.info(context)
+        # Add static error description
+        context += "\n\nStatic Error Descriptions\n"
+        context += self.document_processor.error_description_processing(desc_file, crysl_rule)
 
-        # Searching in the vector db to find the relevant CWE ids
+        logger.info("Context built successfully")
+
+        # RAG search query
         query = self.llm.build_query(vulnerable_code, context)
         logger.info(f"Optimized search query: {query}")
-        results  = self.vs_manager.vector_store.similarity_search(query, k=3)
+
+        results = self.vs_manager.vector_store.similarity_search(query, k=3)
         logger.info("Vector DB search completed for relevant CWEs")
+
+        # Load static CWE IDs from Excel/CSV
+        try:
+            cwe_mapper = CWEMapper()
+            static_cwe_ids = cwe_mapper.get_static_cwe_ids(crysl_rule)
+            logger.info(f"Successfully loaded {len(static_cwe_ids)} static CWE IDs from Excel")
+        except Exception as e:
+            logger.error(f"Failed to retrieve static CWE IDs for '{crysl_rule}': {e}")
+            static_cwe_ids = set()
+
+        # Extract dynamic CWE IDs and doc content from vector DB
+        dynamic_cwe_ids = set()
+        cwe_doc_map = {}
+        for doc in results:
+            doc_id = str(doc.metadata.get("doc_id"))
+            if doc_id:
+                dynamic_cwe_ids.add(f"CWE-{doc_id}")
+                cwe_doc_map[doc_id] = doc.page_content
+
+        logger.info(f"Dynamic CWE IDs from vector DB: {dynamic_cwe_ids}")
+        logger.info(f"Static CWE IDs from Excel: {static_cwe_ids}")
+
+        # Combine static + dynamic with proper formatting
+        combined_cwe_ids = set()
+        
+        # Add static CWE IDs (ensure CWE- prefix)
+        for cwe in static_cwe_ids:
+            formatted_cwe = cwe if cwe.startswith("CWE-") else f"CWE-{cwe}"
+            combined_cwe_ids.add(formatted_cwe)
+        
+        # Add dynamic CWE IDs
+        combined_cwe_ids.update(dynamic_cwe_ids)
+
+        logger.info(f"Final combined CWE IDs for '{crysl_rule}': {combined_cwe_ids}")
+        logger.info(f"Pipeline statistics - Static CWEs: {len(static_cwe_ids)}, "
+                   f"Dynamic CWEs: {len(dynamic_cwe_ids)}, "
+                   f"Total unique CWEs: {len(combined_cwe_ids)}")
+
+        # Build links and names list
         links_list = []
         names_list = []
-        for i, doc in enumerate(results):
-            link = f"https://cwe.mitre.org/data/definitions/{doc.metadata['doc_id']}.html"
-            name = re.search(r"Name:\s*(.+)", str(doc.page_content))
-            if name:
-                names_list.append(name.group(1))
-                links_list.append(link)
-        logger.info(f"CWE links - {links_list}\n CWE names - {names_list}")
+        
+        for cwe_id in sorted(combined_cwe_ids):  # Sort for consistent output
+            cwe_num = cwe_id.replace("CWE-", "").strip()
+            link = f"https://cwe.mitre.org/data/definitions/{cwe_num}.html"
+            links_list.append(link)
 
-        # Performing the vulnerability analysis via LLM
-        # First the initial analysis and then more iterations to improve the solutions
+            # Try to extract name from vector DB match
+            # name = None
+            # if cwe_num in cwe_doc_map:
+            #     match = re.search(r"Name:\s*(.+)", str(cwe_doc_map[cwe_num]))
+            #     if match:
+            #         name = match.group(1).strip()
+            
+            # names_list.append(name if name else f"{cwe_id} (name unavailable)")
+
+        logger.info(f"Generated {len(links_list)} CWE links")
+        logger.info(f"CWE links - {links_list}")
+
+        # Vulnerability analysis
         logger.info("Calling the analyse_vulnerability function which performs analysis of code snippet")
         response = self.llm.analyse_vulnerability(context, vulnerable_code)
+        logger.info("Vulnerability analysis completed")
         logger.info(vars(response))
-        # for i in range(0,iterations-1):
-        #     logger.info("Initial analysis complete, now performing more iterations")
-        #     response = self.llm.analysis_iterations(response)
-        #     logger.info(vars(response))
+
+        # Secure Java generation
         response1 = self.llm.cogniCrypt_analysis(response.possible_solution)
         logger.info(f"Generated Java class for CogniCrypt:\n{response1}")
-        # Assuming response1 is the raw Java code string returned from LLM
 
+        # Final return (unchanged)
         return response, links_list, names_list, response1
-    

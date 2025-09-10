@@ -30,7 +30,7 @@ class CCRUN:
             data = json.load(f)
         return len(data["runs"][0].get("results", [])) > 0
 
-    def iterate_until_verified(self, initial_solution: str, max_iterations: int = 5) -> Tuple[str, bool]:
+    def iterate_until_verified(self, initial_solution: str, max_iterations: int = 10) -> Tuple[str, bool]:
         current_solution = initial_solution
 
         for i in range(max_iterations):
