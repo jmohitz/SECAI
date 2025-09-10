@@ -5,7 +5,6 @@ aifix.log
 *.pyo
 *.pyd
 __pycache__/
-ollama.py
 Main.class
 Main.jar
 Main.java
