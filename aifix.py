@@ -41,7 +41,6 @@ def _parse_provider_and_model(s: str) -> Tuple[str, str | None]:
     # Split on first colon to separate provider from model
     parts = s.split(":", 1)
     provider = parts[0].strip().upper()  # Normalize to uppercase
-    
     # Extract model name if provided, otherwise None (will use handler's default)
     model = parts[1].strip() if len(parts) == 2 and parts[1].strip() else None
     return provider, model
@@ -101,11 +100,10 @@ def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations_
         **({"api_key": os.getenv(api_key_env)} if api_key_env else {}),
         # Pass through model preference to handler's model resolution logic
         model=selected_model,
-        # Low temperature for consistent, focused security analysis
+        # Low temperature
         temperature= 0.1,
     )
-    logger.info(f"[ai_fix] Handler initialized for provider={provider}, "
-               f"model={getattr(handler.llm, 'model', 'unknown')}")
+    logger.info(f"[ai_fix] Handler initialized for provider={provider}")
 
     # Initialize the core components of our analysis pipeline
     doc_processor = DocumentProcessor()      # Handles CWE document chunking and metadata

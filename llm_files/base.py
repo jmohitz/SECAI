@@ -12,6 +12,31 @@ CWE identifiers, Java class names, or package paths. Output the query as a singl
 for semantic vector search."""
 )
 
+CWE_Selection_Prompt = ChatPromptTemplate.from_template(
+    """
+    You are a cybersecurity expert specializing in Common Weakness Enumeration (CWE) analysis.
+    
+    Given the following context:
+    - Vulnerable Code: {vulnerable_code}
+    - CrySL Rule Context: {context}
+    - Error Message: {error_message}
+    
+    From this list of potential CWE IDs found through static mapping and dynamic vector search:
+    {candidate_cwe_ids}
+    
+    Select the TOP 3 most relevant CWE IDs that best match the specific vulnerability in the code.
+    Consider:
+    1. The exact nature of the security flaw
+    2. The cryptographic context from CrySL rules
+    3. The specific error patterns
+    
+    Output ONLY the CWE IDs separated by commas. Example: CWE-327, CWE-330, CWE-259
+    No explanations, no brackets, no extra text
+    
+    Be selective and prioritize precision over recall.
+    """
+)
+
 CodeAnalysis_Prompt = ChatPromptTemplate.from_template(
 """
 You are Java Cryptography Architecture (JCA) developer and you are tasked with analyzing a given code
@@ -166,6 +191,55 @@ class BaseLLM:
             "original_code": original_code,
             "final_code": final_code
         }).strip()
+
+    def select_relevant_cwes(self, vulnerable_code: str, context: str, error_message: str, candidate_cwe_ids: list) -> list:
+        """
+        Use LLM to select the most relevant CWE IDs with simple parsing
+        """
+        logger.info(f"Prompting LLM to select most relevant CWEs from {len(candidate_cwe_ids)} candidates")
+        
+        cwe_list_str = ", ".join(sorted(set(candidate_cwe_ids)))
+        
+        chain = CWE_Selection_Prompt | self.llm | self.output_parser
+        
+        try:
+            response = chain.invoke({
+                "vulnerable_code": vulnerable_code,
+                "context": context,
+                "error_message": error_message,
+                "candidate_cwe_ids": cwe_list_str
+            }).strip()
+            
+            logger.info(f"LLM response: {response}")
+            
+            # Simple regex extraction
+            import re
+            cwe_matches = re.findall(r'CWE-?\d+', response, re.IGNORECASE)
+            
+            # Format and filter
+            candidate_set = set(candidate_cwe_ids)
+            selected = []
+            
+            for match in cwe_matches:
+                cwe_id = f"CWE-{re.search(r'\d+', match).group(0)}"
+                if cwe_id in candidate_set and cwe_id not in selected:
+                    selected.append(cwe_id)
+                    if len(selected) >= 3:
+                        break
+            
+            if selected:
+                logger.info(f"LLM selected CWEs: {selected}")
+                return selected
+            else:
+                # Fallback
+                fallback = list(sorted(candidate_set))[:3]
+                logger.info(f"No valid selection, using fallback: {fallback}")
+                return fallback
+            
+        except Exception as e:
+         logger.error(f"CWE selection failed: {e}")
+        return list(sorted(set(candidate_cwe_ids)))[:3]
+
 
 
 

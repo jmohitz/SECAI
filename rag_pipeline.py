@@ -69,8 +69,8 @@ class RAGPipeline:
         ErrorDesc_Path = r"data/CogniCrypt_ErrorDesc"
         
         context = ""
-        error_type = rule.split(":")[1]
-        crysl_rule = message.split(" ")[0]
+        error_type = rule.split(":")[1].split("_")[0]
+        crysl_rule = rule.split("_")[1]
         desc_file = f"{ErrorDesc_Path}/{error_type}.json"
 
         # Load CrySL rule file
@@ -82,7 +82,6 @@ class RAGPipeline:
         # Add static error description
         context += "\n\nStatic Error Descriptions\n"
         context += self.document_processor.error_description_processing(desc_file, crysl_rule)
-
         logger.info("Context built successfully")
 
         # RAG search query
@@ -113,7 +112,7 @@ class RAGPipeline:
         logger.info(f"Dynamic CWE IDs from vector DB: {dynamic_cwe_ids}")
         logger.info(f"Static CWE IDs from Excel: {static_cwe_ids}")
 
-        # Combine static + dynamic with proper formatting
+                # Combine static + dynamic with proper formatting
         combined_cwe_ids = set()
         
         # Add static CWE IDs (ensure CWE- prefix)
@@ -124,19 +123,35 @@ class RAGPipeline:
         # Add dynamic CWE IDs
         combined_cwe_ids.update(dynamic_cwe_ids)
 
-        logger.info(f"Final combined CWE IDs for '{crysl_rule}': {combined_cwe_ids}")
+        logger.info(f"Combined CWE candidates for '{crysl_rule}': {combined_cwe_ids}")
         logger.info(f"Pipeline statistics - Static CWEs: {len(static_cwe_ids)}, "
                    f"Dynamic CWEs: {len(dynamic_cwe_ids)}, "
                    f"Total unique CWEs: {len(combined_cwe_ids)}")
 
-        # Build links and names list
+        # NEW: Use LLM to select most relevant CWE IDs
+        if combined_cwe_ids:
+            selected_cwe_ids = self.llm.select_relevant_cwes(
+                vulnerable_code=vulnerable_code,
+                context=context,
+                error_message=message,
+                candidate_cwe_ids=list(combined_cwe_ids)
+            )
+            logger.info(f"LLM selected top relevant CWEs: {selected_cwe_ids}")
+        else:
+            selected_cwe_ids = []
+            logger.warning("No CWE candidates found for LLM selection")
+
+        # Build links and names list from LLM-selected CWEs
         links_list = []
         names_list = []
-        
-        for cwe_id in sorted(combined_cwe_ids):  # Sort for consistent output
+
+        for cwe_id in selected_cwe_ids:
             cwe_num = cwe_id.replace("CWE-", "").strip()
             link = f"https://cwe.mitre.org/data/definitions/{cwe_num}.html"
             links_list.append(link)
+
+        logger.info(f"Generated {len(links_list)} CWE links from LLM selection")
+
 
             # Try to extract name from vector DB match
             # name = None
@@ -147,7 +162,6 @@ class RAGPipeline:
             
             # names_list.append(name if name else f"{cwe_id} (name unavailable)")
 
-        logger.info(f"Generated {len(links_list)} CWE links")
         logger.info(f"CWE links - {links_list}")
 
         # Vulnerability analysis
