@@ -41,12 +41,14 @@ class CCRUN:
             logger.info(f"[Iteration {i + 1}]  Java code saved to {java_path}")
 
             # Step 2: Compile code
+            # around the compile step
             try:
                 class_path = compile_java(java_path)
-                logger.info(f"[Iteration {i + 1}]  Compilation succeeded: {class_path}")
-            except Exception as e:
-                logger.error(f"[Iteration {i + 1}]  Compilation failed: {str(e)}")
-                raise
+            except Exception:
+                # log the detailed error internally
+                logger.error("Compilation failed", exc_info=True)  # keep details in logs
+                # raise a normalized error for the API layer
+                raise RuntimeError("COMPILATION_ERROR")
 
             # Step 3: Package into .jar
             try:

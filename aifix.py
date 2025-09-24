@@ -8,6 +8,7 @@ import re
 from typing import Dict, Any, Tuple
 from logger_config import get_logger
 from ccrun import CCRUN
+from utils.code_sanitizer import extract_java_source
 
 # Initialize logging and load environment variables (API keys, etc.)
 logger = get_logger(__name__)
@@ -134,13 +135,33 @@ def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations_
         # === PHASE 2: Iterative Security Verification ===
         # Use CogniCrypt to verify and refine the generated secure code
         ccrunner = CCRUN(handler)
-        final_code, verified = ccrunner.iterate_until_verified(java_code, max_iterations=iterations_cc)
+        try:
+            final_code, verified = ccrunner.iterate_until_verified(java_code, max_iterations=iterations_cc)
+        except RuntimeError as re_err:
+            # Propagate normalized compilation signal upward
+            if "COMPILATION_ERROR" in str(re_err):
+                logger.error("Compilation error reported by CCRUN; re-raising for API mapping")
+                raise
+            # Non-compilation runtime error inside CCRUN — convert to generic error
+            logger.exception("Runtime error during CCRUN")
+            return {"error": "Analysis failed during secure verification."}
+        except Exception as ex:
+            # If deep code raised raw compile text, normalize here so the API can map it
+            msg = str(ex)
+            if "Compilation failed" in msg or "javac" in msg:
+                logger.error("Raw compilation failure encountered; normalizing to COMPILATION_ERROR")
+                raise RuntimeError("COMPILATION_ERROR")
+            logger.exception("Unexpected error during CCRUN")
+            return {"error": "Analysis failed during secure verification."}
         # This compiles, tests, and iteratively improves code until it passes security analysis
         
         # === PHASE 3: Final Code Processing ===  
         # Extract just the essential secure code snippet (not the full class)
         secure_snippet = handler.extract_fixed_snippet(code_input, final_code)
-        
+        if secure_snippet.lstrip().startswith("```"):
+            logger.info("Fenced block detected at start of snippet, applying code sanitizer")
+            cleaned = extract_java_source(secure_snippet)
+            secure_snippet = cleaned if cleaned else secure_snippet
         # Generate a final technical explanation of the vulnerability and fix
         final_explanation = handler.final_explanation(code_input, final_code)
 
@@ -164,8 +185,16 @@ def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations_
             "Final_Secure_Code_Snippet": secure_snippet             # The verified secure replacement code
         }
 
+    except RuntimeError as e:
+        # If compilation normalization reached here, let the route handler map it.
+        if "COMPILATION_ERROR" in str(e):
+            logger.error("Analysis failed with COMPILATION_ERROR (re-raising to API layer)")
+            raise
+        # Other runtime errors -> structured error
+        logger.exception("Runtime error in ai_fix")
+        return {"error": "Analysis failed due to a runtime error."}
+
     except Exception as e:
-        # If any part of the analysis fails, return error information
-        # This ensures the API always returns a valid response structure
+        # Generic fallback for all non-compilation errors
         logger.error(f"Analysis failed: {str(e)}")
-        return {"error": f"Analysis failed: {str(e)}"}
+        return {"error": "Analysis failed during processing."}

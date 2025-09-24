@@ -44,15 +44,24 @@ def aifix():
         logger.info("Data not found in cache, starting the analysis")
         result = ai_fix(code, rule, message, llm_model.lower(), iterations_cc)
 
-        # Only save to DB if result is not an error
-        if not (isinstance(result, dict) and "error" in result):
-            app_db.save_analysis_record(input_data, result)
+         # Normalize error dicts returned by ai_fix (non-exception path)
+        if isinstance(result, dict) and "error" in result:
+            err = str(result["error"])
+            logger.error(f"ai_fix returned error: {err}")
+            if "COMPILATION_ERROR" in err or "Compilation failed" in err:
+                return jsonify({"error": "Error compiling code. Please select a different model."}), 400
+            return jsonify({"error": "An error occurred during analysis. Please try again."}), 500
 
+        # Only save to DB if result is not an error
+        app_db.save_analysis_record(input_data, result)
         return jsonify(result)
 
     except Exception as e:
-        logger.error(f"Error : {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        msg = str(e)
+        logger.error(f"Error: {msg}")
+        if "COMPILATION_ERROR" in msg or "Compilation failed" in msg:
+            return jsonify({"error": "Error compiling code. Please select a different model."}), 400
+        return jsonify({"error": "An error occurred during analysis. Please try again."}), 500
 
 if __name__ == '__main__':
     logger.info("Starting the API")

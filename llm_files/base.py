@@ -120,9 +120,11 @@ From the final code, extract only the minimal code lines that directly replace a
 Return only the fixed code snippet (a few lines). 
 Do NOT include import statements, class wrappers, or explanations.
 Do not return markdown, explanations, comments, or code fences.
+Do NOT wrap your response in triple backticks.
 IMPORTANT: Do not change the output format, and ensure the possible solution is always a few lines of code
 IMPORTANT: The solution should just be the code snippet fixing the logic, do not add import statements, create
 functions or try-catch blocks
+Return only the valid Java source snippet.
 Also do not add comments inside the possible solution, but integrate the logic behind them in the explanation section
 """
 )
@@ -239,8 +241,3 @@ class BaseLLM:
         except Exception as e:
          logger.error(f"CWE selection failed: {e}")
         return list(sorted(set(candidate_cwe_ids)))[:3]
-
-
-
-
-
