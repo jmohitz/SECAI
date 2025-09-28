@@ -255,7 +255,8 @@ def new_ai_fix(extracted_data: dict):
         all_cwe_references = []
         current_code = current_source_code
         remaining_errors = error_trace.copy()  # Track which errors still need processing
-
+        vulnerability_analysis = None
+        all_vulnerability_analyses = []
         try:
             # Process each error in the trace flow sequentially
             iteration_count = 0
@@ -269,10 +270,7 @@ def new_ai_fix(extracted_data: dict):
 
                 # Find the corresponding node details
                 current_error_node = None
-                for node in all_node_details:
-                    if node.get("hashcode") == current_error_hashcode or node.get("nodeId") == current_error_hashcode:
-                        current_error_node = node
-                        break
+                current_error_node = all_node_details.get(current_error_hashcode)
 
                 if not current_error_node:
                     logger.warning(f"Could not find node details for error: {current_error_hashcode}")
@@ -291,14 +289,16 @@ def new_ai_fix(extracted_data: dict):
 
                 # === PHASE 1: RAG-based Analysis and Fixing ===
                 try:
-                    fixed_code, cwe_links, vulnerability_analysis  = rag_pipeline.new_run(
+                    fixed_code, cwe_links, cwe_names, current_vulnerability_analysis  = rag_pipeline.new_run(
                         error_node=current_error_node,
                         full_source_code=current_code,
                         preceding_context=preceding_context
                     )
 
                     logger.info(f"RAG pipeline completed for error {current_error_hashcode}")
-
+                    if current_vulnerability_analysis:
+                        all_vulnerability_analyses.append(current_vulnerability_analysis)
+                        vulnerability_analysis = current_vulnerability_analysis
                     # Store CWE references for final response
                     if cwe_links:
                         all_cwe_references.extend([
@@ -417,9 +417,24 @@ def new_ai_fix(extracted_data: dict):
 
             logger.info(f"Final result: {len(processed_errors)} errors manually processed, {auto_resolved_count} auto-resolved, {verified_count} verified")
 
+
+            logger.info("I reached final response area")
+            if vulnerability_analysis:
+                vulnerability_name = vulnerability_analysis.vulnerability_name
+            elif all_vulnerability_analyses:
+                # Use the first analysis for consistency
+                vulnerability_name = all_vulnerability_analyses[0].vulnerability_name
+            elif processed_errors:
+                # Generate name based on processed errors
+                main_error_type = processed_errors[0].get('errorType', 'Unknown')
+                vulnerability_name = f"Cryptographic {main_error_type} in Multi-node Trace"
+            else:
+                # Complete fallback
+                vulnerability_name = f"Multi-node Trace Analysis ({len(error_trace)} errors)"
+
             # === PHASE 5: Enhanced Response Formatting ===
             return {
-                "Vulnerability_name": vulnerability_analysis.vulnerability_name,
+                "Vulnerability_name": vulnerability_name,
                 "Explanation": final_explanation,
                 "CWE_references": unique_cwe_refs,
                 "CogniCrypt_Verified": overall_verified,

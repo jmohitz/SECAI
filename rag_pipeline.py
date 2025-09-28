@@ -345,10 +345,10 @@ class RAGPipeline:
 
         # Use the new_fix_targeted_error method from base.py (already implemented!)
         fixed_code = self.llm.new_fix_targeted_error(
-            fullcode=full_source_code,
-            errordetails=error_node,
-            sarifreport=sarif_report,
-            compilationerror=compilation_error
+            full_code=full_source_code,
+            error_details=error_node,
+            sarif_report=sarif_report,
+            compilation_error=compilation_error
         )
 
         logger.info("Trace-aware error fixing completed")
