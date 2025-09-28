@@ -143,6 +143,112 @@ Do not include the code in your answer — only return the explanation.
 """
 )
 
+InitialFix_Prompt = ChatPromptTemplate.from_template(
+    """
+    You are an expert Java security developer tasked with fixing a single, specific vulnerability in a full Java class. Your task is to be precise and minimalist.
+
+    **Critical Rules:**
+    - **DO NOT** change any variable names, class names, or method signatures.
+    - **DO NOT** alter the program's existing logic, functionality, or behavior.
+    - **DO NOT** add any new public methods or fields.
+    - **DO** focus exclusively on fixing the single target vulnerability. Your changes should be as small and localized as possible.
+    - **ONLY** output the complete, modified Java source code. Do not include explanations, apologies, or any surrounding text.
+
+    ---
+
+    **CONTEXT:**
+
+    The full Java source code is provided below. It contains a chain of related security errors.
+    ```java
+    {full_source_code}
+    ```
+
+    ---
+
+    **YOUR TASK:**
+
+    You must fix ONLY the following target error.
+
+    - **Error Hashcode/ID:** {error_id}
+    - **Line Number:** {error_line_number}
+    - **Error Message:** {error_message}
+    - **Vulnerability Rule:** {error_rule}
+
+    This error is part of a sequence.
+    - It is preceded by the error: {preceding_error_message}
+    - It is followed by the error: {subsequent_error_message}
+
+    Apply the minimal necessary changes to the full source code to resolve ONLY the target error described above.
+
+    **Output the complete, corrected Java code now.**
+    """
+)
+
+Refinement_Prompt = ChatPromptTemplate.from_template(
+    """
+    You are an expert Java security developer. Your previous attempt to fix a vulnerability was incorrect and was rejected by a security scanner. You must now refine your fix based on the scanner's report.
+
+    **Critical Rules:**
+    - **DO NOT** change variable names, class names, or method signatures.
+    - **DO NOT** alter the program's logic or functionality.
+    - **ONLY** modify the code to satisfy the requirements of the new error report.
+    - **ONLY** output the complete, modified Java source code.
+
+    ---
+
+    **CONTEXT:**
+
+    Here is the Java code from your previous, incorrect attempt:
+    ```java
+    {previous_code_attempt}
+    ```
+
+    ---
+
+    **YOUR TASK:**
+
+    The code above FAILED a security scan. The scanner produced a new report detailing the remaining violations. Here is a summary of the current error graph:
+
+    **Remaining Errors Summary:**
+    {error_graph_summary}
+
+    Analyze this new error summary and the code. Apply the minimal changes necessary to fix the violations described.
+
+    **Output the complete, corrected Java code now.**
+    """
+)
+
+CompilationFix_Prompt = ChatPromptTemplate.from_template(
+    """
+    You are a Java compiler expert. The Java code you previously generated has a compilation error and could not be compiled.
+
+    **Critical Rules:**
+    - Your ONLY goal is to fix the syntax and make the code compile.
+    - **DO NOT** attempt to fix any security issues in this step.
+    - **DO NOT** change variable names or program logic.
+    - **ONLY** output the complete, compilable Java source code.
+
+    ---
+
+    **CONTEXT:**
+
+    The following Java code is syntactically incorrect. The compilation failed with this error:
+    {compilation_error_message}
+    
+    ```java
+    {code_with_compilation_error}
+    ```
+
+    ---
+
+    **YOUR TASK:**
+
+    Fix the compilation error so that the code is valid Java.
+
+    **Output the complete, corrected Java code now.**
+    """
+)
+
 class BaseLLM:
     def __init__(self, llm):
         self.llm           = llm
@@ -241,3 +347,39 @@ class BaseLLM:
         except Exception as e:
          logger.error(f"CWE selection failed: {e}")
         return list(sorted(set(candidate_cwe_ids)))[:3]
+
+    def new_fix_targeted_error(self,full_code: str,error_details: dict,sarif_report: str = None,compilation_error: str = None):
+        logger.info(f"Initiating new targeted fix for error ID: {error_details.get('hashcode')}")
+
+        if compilation_error:
+            logger.info("Using CompilationFix_Prompt to fix syntax error.")
+            prompt = CompilationFix_Prompt
+            payload = {
+                "code_with_compilation_error": full_code,
+                "compilation_error_message": compilation_error
+            }
+        elif sarif_report:
+            logger.info("Using Refinement_Prompt with new SARIF report.")
+            prompt = Refinement_Prompt
+            payload = {
+                "previous_code_attempt": full_code,
+                "sarif_report": sarif_report
+            }
+        else:
+            logger.info("Using InitialFix_Prompt for the first attempt.")
+            prompt = InitialFix_Prompt
+            payload = {
+                "full_source_code": full_code,
+                "error_id": error_details.get('hashcode'), # Using hashcode as the unique ID from the initial payload
+                "error_line_number": error_details.get('line'),
+                "error_message": error_details.get('message'),
+                "error_rule": error_details.get('rule'),
+                "preceding_error_message": error_details.get('preceding_error_message', 'None'),
+                "subsequent_error_message": error_details.get('subsequent_error_message', 'None')
+            }
+
+        chain = prompt | self.llm | self.output_parser
+
+        # Invoke the LLM and return the resulting code
+        proposed_new_code = chain.invoke(payload).strip()
+        return proposed_new_code

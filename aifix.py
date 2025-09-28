@@ -198,3 +198,250 @@ def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations_
         # Generic fallback for all non-compilation errors
         logger.error(f"Analysis failed: {str(e)}")
         return {"error": "Analysis failed during processing."}
+
+def new_ai_fix(extracted_data: dict):
+    logger.info("Starting the new AI fix pipeline...")
+
+    all_node_details = extracted_data['all_node_details']
+    error_trace = extracted_data['simplified_trace']['trace_flow']
+    current_source_code = extracted_data['source_code']
+    package_info = extracted_data['package_info']
+    llm_model_name = extracted_data.get("llm_model", "openai")
+    max_iterations = extracted_data.get("iterations", 3)
+
+    try:
+        # This logic is adapted from your original ai_fix function
+        provider, selected_model = _parse_provider_and_model(llm_model_name)
+        if provider == "OPENAI":
+            api_key_env = "OPENAI_API_KEY"
+        elif provider == "GEMINI":
+            api_key_env = "GOOGLE_API_KEY"
+        elif provider == "OLLAMA":
+            api_key_env = None
+        else:
+            raise ValueError(f"Unsupported provider: {provider}")
+
+        handler = get_handler(
+            provider,
+            **({"api_key": os.getenv(api_key_env)} if api_key_env else {}),
+            model=selected_model,
+            temperature=0.1,
+        )
+        ccrun_verifier = CCRUN(handler)
+        logger.info(f"Tools initialized for provider={provider}")
+
+        # Initialize Document Processor, Vector Store, and RAG Pipeline
+        doc_processor = DocumentProcessor()
+        vs_manager = VectorStoreManager()
+        rag_pipeline = RAGPipeline(doc_processor, vs_manager, handler)
+
+        # Set up or load the CWE knowledge base
+        CWE_File_Path = r"data/CWE"
+        if not os.path.exists("faiss_index"):
+            logger.info("FAISS index not found, creating a new one...")
+            chunks = doc_processor.load_and_split(CWE_File_Path)
+            vs_manager.create_store(chunks)
+            vs_manager.save_store()
+            logger.info("FAISS index created successfully.")
+        else:
+            logger.info("Existing FAISS index found, loading vector store.")
+            vs_manager.load_store()
+
+
+        logger.info(f"Starting sequential processing of {len(error_trace)} errors in trace flow")
+
+        # Track processing state
+        processed_errors = []
+        all_cwe_references = []
+        current_code = current_source_code
+        remaining_errors = error_trace.copy()  # Track which errors still need processing
+
+        try:
+            # Process each error in the trace flow sequentially
+            iteration_count = 0
+
+            while remaining_errors and iteration_count < len(error_trace) + 2:  # Safety limit
+                iteration_count += 1
+                current_error_hashcode = remaining_errors[0]  # Always process first remaining error
+
+                logger.info(f"Iteration {iteration_count}: Processing error {current_error_hashcode}")
+                logger.info(f"Remaining errors to process: {len(remaining_errors)}")
+
+                # Find the corresponding node details
+                current_error_node = None
+                for node in all_node_details:
+                    if node.get("hashcode") == current_error_hashcode or node.get("nodeId") == current_error_hashcode:
+                        current_error_node = node
+                        break
+
+                if not current_error_node:
+                    logger.warning(f"Could not find node details for error: {current_error_hashcode}")
+                    remaining_errors.remove(current_error_hashcode)  # Remove from remaining list
+                    continue
+
+                # Build context from previously processed errors
+                if processed_errors:
+                    preceding_context = f"Previously fixed {len(processed_errors)} errors:\n"
+                    for prev_error in processed_errors[-3:]:  # Last 3 for context
+                        preceding_context += f"- {prev_error['hashcode']}: {prev_error['errorType']} on line {prev_error['line']}\n"
+                else:
+                    preceding_context = "First error in trace flow - no preceding fixes"
+
+                logger.info(f"Using RAG pipeline for error: {current_error_node.get('errorType', 'unknown')}")
+
+                # === PHASE 1: RAG-based Analysis and Fixing ===
+                try:
+                    fixed_code, cwe_links, vulnerability_analysis  = rag_pipeline.new_run(
+                        error_node=current_error_node,
+                        full_source_code=current_code,
+                        preceding_context=preceding_context
+                    )
+
+                    logger.info(f"RAG pipeline completed for error {current_error_hashcode}")
+
+                    # Store CWE references for final response
+                    if cwe_links:
+                        all_cwe_references.extend([
+                            {
+                                "cwe": re.sub(r'.*/definitions/(\d+)\.html', r'CWE-\1', link),
+                                "link": link
+                            } for link in cwe_links
+                        ])
+
+                except Exception as e:
+                    logger.error(f"RAG pipeline failed for error {current_error_hashcode}: {e}")
+                    remaining_errors.remove(current_error_hashcode)  # Remove from remaining
+                    continue
+
+                # === PHASE 2: Iterative Security Verification ===
+                logger.info(f"Starting CogniCrypt verification for error {current_error_hashcode}")
+
+                try:
+                    # Verify and refine the code using CogniCrypt
+                    verified_code, is_verified = ccrun_verifier.iterate_until_verified(
+                        initial_solution=fixed_code,
+                        max_iterations=2  # Limit per-error iterations
+                    )
+
+                    logger.info(f"CogniCrypt verification completed. Verified: {is_verified}")
+
+                    # Update current code for next iteration
+                    current_code = verified_code
+
+                    # === PHASE 3: SMART ERROR DETECTION ===
+                    # Check which errors are still present after this fix
+                    logger.info("Checking which errors remain after current fix...")
+
+                    try:
+                        # Run a fresh scan to see what errors still exist
+                        fresh_sarif_path = ccrun_verifier.new_run_single_scan(current_code, "Main")
+                        still_existing_errors = ccrun_verifier.new_get_violations_from_sarif(fresh_sarif_path)
+
+                        # Get hashcodes/IDs of errors that still exist
+                        still_existing_ids = set(still_existing_errors.keys())
+                        logger.info(f"Errors still present: {still_existing_ids}")
+
+                        # Remove resolved errors from remaining_errors list
+                        originally_remaining = remaining_errors.copy()
+                        remaining_errors = [err_id for err_id in remaining_errors if err_id in still_existing_ids]
+
+                        resolved_count = len(originally_remaining) - len(remaining_errors)
+                        if resolved_count > 0:
+                            logger.info(f"🎉 {resolved_count} additional errors were automatically resolved by fixing {current_error_hashcode}!")
+
+                        # Remove the current error from remaining list (it's been processed)
+                        if current_error_hashcode in remaining_errors:
+                            remaining_errors.remove(current_error_hashcode)
+
+                    except Exception as scan_error:
+                        logger.warning(f"Fresh scan failed: {scan_error}. Continuing with original error list.")
+                        # Fallback: just remove current error
+                        if current_error_hashcode in remaining_errors:
+                            remaining_errors.remove(current_error_hashcode)
+
+                    # Add to processed errors list
+                    processed_error_info = {
+                        "hashcode": current_error_hashcode,
+                        "errorType": current_error_node.get("errorType", "unknown"),
+                        "line": current_error_node.get("line", "unknown"),
+                        "verified": is_verified,
+                        "cwe_count": len(cwe_links) if cwe_links else 0,
+                        "iteration": iteration_count
+                    }
+                    processed_errors.append(processed_error_info)
+
+                    logger.info(f"Error {current_error_hashcode} processing completed. Remaining: {len(remaining_errors)}")
+
+                except RuntimeError as re_err:
+                    if "COMPILATION_ERROR" in str(re_err):
+                        logger.error(f"Compilation error for error {current_error_hashcode}: {re_err}")
+                        # Remove from remaining and try next
+                        if current_error_hashcode in remaining_errors:
+                            remaining_errors.remove(current_error_hashcode)
+                        continue
+                    else:
+                        logger.error(f"Runtime error during verification for {current_error_hashcode}: {re_err}")
+                        if current_error_hashcode in remaining_errors:
+                            remaining_errors.remove(current_error_hashcode)
+                        continue
+
+                except Exception as e:
+                    logger.error(f"Verification failed for error {current_error_hashcode}: {e}")
+                    if current_error_hashcode in remaining_errors:
+                        remaining_errors.remove(current_error_hashcode)
+                    continue
+
+            # === PHASE 4: Final Processing ===
+            logger.info("Sequential processing completed. Generating final response...")
+
+            # Generate final explanation considering all processed errors
+            final_explanation = handler.final_explanation(
+                f"Original code with {len(processed_errors)} trace errors",
+                current_code
+            )
+
+            # Calculate overall verification status
+            verified_count = sum(1 for e in processed_errors if e.get("verified", False))
+            overall_verified = verified_count == len(processed_errors) and len(processed_errors) > 0
+
+            # Remove duplicate CWE references
+            unique_cwe_refs = []
+            seen_cwes = set()
+            for cwe_ref in all_cwe_references:
+                cwe_id = cwe_ref["cwe"]
+                if cwe_id not in seen_cwes:
+                    unique_cwe_refs.append(cwe_ref)
+                    seen_cwes.add(cwe_id)
+
+            auto_resolved_count = len(error_trace) - len(processed_errors)
+
+            logger.info(f"Final result: {len(processed_errors)} errors manually processed, {auto_resolved_count} auto-resolved, {verified_count} verified")
+
+            # === PHASE 5: Enhanced Response Formatting ===
+            return {
+                "Vulnerability_name": vulnerability_analysis.vulnerability_name,
+                "Explanation": final_explanation,
+                "CWE_references": unique_cwe_refs,
+                "CogniCrypt_Verified": overall_verified,
+                "Final_Secure_Code_Snippet": current_code,
+                "Processing_Details": {
+                    "total_errors_in_trace": len(error_trace),
+                    "manually_processed": len(processed_errors),
+                    "auto_resolved_by_dependencies": auto_resolved_count,
+                    "verified_errors": verified_count,
+                    "total_iterations": iteration_count,
+                    "processed_errors": processed_errors
+                }
+            }
+
+        except Exception as e:
+            logger.error(f"Sequential processing failed: {e}", exc_info=True)
+            return {
+                "error": f"Sequential processing failed: {str(e)}",
+                "processed_errors": len(processed_errors) if 'processed_errors' in locals() else 0
+            }
+
+
+    except Exception as e:
+        logger.error(f"Failed to initialize tools: {e}", exc_info=True)
+        return {"error": "Tool initialization failed."}
