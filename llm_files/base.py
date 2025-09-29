@@ -4,38 +4,54 @@ from pydantic_models.VulnerabilityAnalysis import VulnerabilityAnalysis
 from logger_config import get_logger
 logger = get_logger(__name__)
 
+# IMPROVED VERSION
 DBSearch_Prompt = ChatPromptTemplate.from_template(
-"""Generate a concise, semantically enriched search query for a CWE vector database using the provided code
-snippet {code} and considering additional security context detailed in {context}. Focus solely
-on high-level vulnerability indicators and technical terms pertinent to security analysis. Do not include any
-CWE identifiers, Java class names, or package paths. Output the query as a single, unformatted line optimized
-for semantic vector search."""
+"""Generate a concise, semantically enriched search query for a CWE vector database.
+
+Input Context:
+- Code snippet: {code}
+- Security context: {context}
+
+Requirements:
+1. Focus on HIGH-LEVEL vulnerability patterns and security concepts
+2. Use technical security terminology that matches CWE descriptions
+3. Exclude: CWE identifiers, specific class/package names, implementation details
+4. Include: vulnerability types, security mechanisms, cryptographic concepts
+
+Output: Single line, optimized for semantic vector similarity search.
+
+Examples of good queries:
+- "weak cryptographic algorithm implementation"
+- "insufficient entropy random number generation"
+- "hardcoded cryptographic key usage"
+"""
 )
 
 CWE_Selection_Prompt = ChatPromptTemplate.from_template(
-    """
-    You are a cybersecurity expert specializing in Common Weakness Enumeration (CWE) analysis.
-    
-    Given the following context:
-    - Vulnerable Code: {vulnerable_code}
-    - CrySL Rule Context: {context}
-    - Error Message: {error_message}
-    
-    From this list of potential CWE IDs found through static mapping and dynamic vector search:
-    {candidate_cwe_ids}
-    
-    Select the TOP 3 most relevant CWE IDs that best match the specific vulnerability in the code.
-    Consider:
-    1. The exact nature of the security flaw
-    2. The cryptographic context from CrySL rules
-    3. The specific error patterns
-    
-    Output ONLY the CWE IDs separated by commas. Example: CWE-327, CWE-330, CWE-259
-    No explanations, no brackets, no extra text
-    
-    Be selective and prioritize precision over recall.
-    """
+"""You are a cybersecurity expert specializing in precise CWE classification.
+
+ANALYSIS INPUTS:
+- Vulnerable Code: {vulnerable_code}
+- CrySL Rule Context: {context}
+- Error Message: {error_message}
+- Candidate CWE IDs: {candidate_cwe_ids}
+
+SELECTION CRITERIA (in order of importance):
+1. **Root Cause Match**: Does the CWE directly address the underlying vulnerability?
+2. **Cryptographic Relevance**: How well does it align with JCA/cryptographic context?
+3. **Error Pattern Alignment**: Does it match the specific error manifestation?
+
+TASK: Select exactly 3 CWE IDs that best match the vulnerability, ranked by relevance.
+
+OUTPUT FORMAT: CWE-XXX, CWE-YYY, CWE-ZZZ
+- No explanations
+- No brackets or quotes  
+- Comma-separated only
+- Most relevant first
+
+Be highly selective - prefer precision over coverage."""
 )
+
 
 CodeAnalysis_Prompt = ChatPromptTemplate.from_template(
 """
@@ -54,27 +70,6 @@ Also do not add comments inside the possible solution, but integrate the logic b
 """
 )
 
-# Iterations_Prompt = ChatPromptTemplate.from_template(
-# """
-# As a Java Cryptography Architecture (JCA) developer, this is the output you provided
-# to solve my vulnerability:
-
-# Vulnerability Name: {vulnerability_name}
-# Possible Solution: {possible_solution}
-# Explanation: {explanation}
-
-# Review it as a JCA expert. Improve the code and keep the same output format:
-# Make sure to expand on the solution and improve it
-# Vulnerability Name: [Name]
-# Possible Solution: [Few lines of code]
-# Explanation: [Text explanation of the issue and the solution, maximum 150 words]
-
-# IMPORTANT: Do not change the output format, and ensure the possible solution is always a few lines of code
-# IMPORTANT: The solution should just be the code snippet fixing the logic, do not add import statements, create
-# functions or try-catch blocks
-# Also do not add comments inside the possible solution, but integrate the logic behind them in the explanation section
-# """
-# )
 CogniCrypt_Prompt = ChatPromptTemplate.from_template(
 """
 You are a Java Cryptography Architecture (JCA) expert.

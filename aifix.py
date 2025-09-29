@@ -270,6 +270,9 @@ def new_ai_fix(extracted_data: dict):
 
                 # Find the corresponding node details
                 current_error_node = None
+                if isinstance(all_node_details, list):
+                    all_node_details = {node['hashcode']: node for node in all_node_details}
+
                 current_error_node = all_node_details.get(current_error_hashcode)
 
                 if not current_error_node:

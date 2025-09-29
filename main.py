@@ -27,7 +27,7 @@ def aifix():
         if not code:
             logger.error("Error: Missing code snippet")
             return jsonify({"error": "Missing code snippet"}), 400
-
+        
         input_data = {
             "code": code,
             "rule": rule,
