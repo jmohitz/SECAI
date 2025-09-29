@@ -1,7 +1,8 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from aifix import ai_fix
+from aifix import ai_fix, new_ai_fix
 from logger_config import get_logger
+import payload_extraction
 import app_db
 
 app_db.init_db()
@@ -26,7 +27,7 @@ def aifix():
         if not code:
             logger.error("Error: Missing code snippet")
             return jsonify({"error": "Missing code snippet"}), 400
-
+        
         input_data = {
             "code": code,
             "rule": rule,
@@ -44,15 +45,52 @@ def aifix():
         logger.info("Data not found in cache, starting the analysis")
         result = ai_fix(code, rule, message, llm_model.lower(), iterations_cc)
 
-        # Only save to DB if result is not an error
-        if not (isinstance(result, dict) and "error" in result):
-            app_db.save_analysis_record(input_data, result)
+         # Normalize error dicts returned by ai_fix (non-exception path)
+        if isinstance(result, dict) and "error" in result:
+            err = str(result["error"])
+            logger.error(f"ai_fix returned error: {err}")
+            if "COMPILATION_ERROR" in err or "Compilation failed" in err:
+                return jsonify({"error": "Error compiling code. Please select a different model."}), 400
+            return jsonify({"error": "An error occurred during analysis. Please try again."}), 500
 
+        # Only save to DB if result is not an error
+        app_db.save_analysis_record(input_data, result)
         return jsonify(result)
 
     except Exception as e:
-        logger.error(f"Error : {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        msg = str(e)
+        logger.error(f"Error: {msg}")
+        if "COMPILATION_ERROR" in msg or "Compilation failed" in msg:
+            return jsonify({"error": "Error compiling code. Please select a different model."}), 400
+        return jsonify({"error": "An error occurred during analysis. Please try again."}), 500
+
+@app.route('/newfix', methods=['POST'])
+def new_aifix():
+    """
+    Handles the new payload and passes the extracted data to the sequential fixer.
+    """
+    logger.info("Received request on the new /newfix endpoint.")
+    try:
+        # 1. Get the raw payload
+        payload = request.get_json()
+        if not payload:
+            logger.error("Error: Missing JSON payload for /aifix/v2")
+            return jsonify({"error": "Missing JSON payload"}), 400
+
+        # 2. Call the payload extraction module to process the data
+        extracted_data = payload_extraction.process_payload(payload)
+        logger.info("Payload processed successfully by payload_extraction module.")
+
+        # 3. Call the new sequential fixing function in aifix.py
+        # Pass the entire dictionary of extracted data
+        final_result = new_ai_fix(extracted_data)
+
+        # 4. Return the final result
+        return jsonify(final_result)
+
+    except Exception as e:
+        logger.error(f"An unexpected error occurred in /aifix/v2: {str(e)}", exc_info=True)
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 if __name__ == '__main__':
     logger.info("Starting the API")

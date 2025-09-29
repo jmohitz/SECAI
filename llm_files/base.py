@@ -4,13 +4,54 @@ from pydantic_models.VulnerabilityAnalysis import VulnerabilityAnalysis
 from logger_config import get_logger
 logger = get_logger(__name__)
 
+# IMPROVED VERSION
 DBSearch_Prompt = ChatPromptTemplate.from_template(
-"""Generate a concise, semantically enriched search query for a CWE vector database using the provided code
-snippet {code} and considering additional security context detailed in {context}. Focus solely
-on high-level vulnerability indicators and technical terms pertinent to security analysis. Do not include any
-CWE identifiers, Java class names, or package paths. Output the query as a single, unformatted line optimized
-for semantic vector search."""
+"""Generate a concise, semantically enriched search query for a CWE vector database.
+
+Input Context:
+- Code snippet: {code}
+- Security context: {context}
+
+Requirements:
+1. Focus on HIGH-LEVEL vulnerability patterns and security concepts
+2. Use technical security terminology that matches CWE descriptions
+3. Exclude: CWE identifiers, specific class/package names, implementation details
+4. Include: vulnerability types, security mechanisms, cryptographic concepts
+
+Output: Single line, optimized for semantic vector similarity search.
+
+Examples of good queries:
+- "weak cryptographic algorithm implementation"
+- "insufficient entropy random number generation"
+- "hardcoded cryptographic key usage"
+"""
 )
+
+CWE_Selection_Prompt = ChatPromptTemplate.from_template(
+"""You are a cybersecurity expert specializing in precise CWE classification.
+
+ANALYSIS INPUTS:
+- Vulnerable Code: {vulnerable_code}
+- CrySL Rule Context: {context}
+- Error Message: {error_message}
+- Candidate CWE IDs: {candidate_cwe_ids}
+
+SELECTION CRITERIA (in order of importance):
+1. **Root Cause Match**: Does the CWE directly address the underlying vulnerability?
+2. **Cryptographic Relevance**: How well does it align with JCA/cryptographic context?
+3. **Error Pattern Alignment**: Does it match the specific error manifestation?
+
+TASK: Select exactly 3 CWE IDs that best match the vulnerability, ranked by relevance.
+
+OUTPUT FORMAT: CWE-XXX, CWE-YYY, CWE-ZZZ
+- No explanations
+- No brackets or quotes  
+- Comma-separated only
+- Most relevant first
+
+Be highly selective - prefer precision over coverage."""
+)
+
 
 CodeAnalysis_Prompt = ChatPromptTemplate.from_template(
 """
@@ -29,27 +70,6 @@ Also do not add comments inside the possible solution, but integrate the logic b
 """
 )
 
-# Iterations_Prompt = ChatPromptTemplate.from_template(
-# """
-# As a Java Cryptography Architecture (JCA) developer, this is the output you provided
-# to solve my vulnerability:
-
-# Vulnerability Name: {vulnerability_name}
-# Possible Solution: {possible_solution}
-# Explanation: {explanation}
-
-# Review it as a JCA expert. Improve the code and keep the same output format:
-# Make sure to expand on the solution and improve it
-# Vulnerability Name: [Name]
-# Possible Solution: [Few lines of code]
-# Explanation: [Text explanation of the issue and the solution, maximum 150 words]
-
-# IMPORTANT: Do not change the output format, and ensure the possible solution is always a few lines of code
-# IMPORTANT: The solution should just be the code snippet fixing the logic, do not add import statements, create
-# functions or try-catch blocks
-# Also do not add comments inside the possible solution, but integrate the logic behind them in the explanation section
-# """
-# )
 CogniCrypt_Prompt = ChatPromptTemplate.from_template(
 """
 You are a Java Cryptography Architecture (JCA) expert.
@@ -95,9 +115,11 @@ From the final code, extract only the minimal code lines that directly replace a
 Return only the fixed code snippet (a few lines). 
 Do NOT include import statements, class wrappers, or explanations.
 Do not return markdown, explanations, comments, or code fences.
+Do NOT wrap your response in triple backticks.
 IMPORTANT: Do not change the output format, and ensure the possible solution is always a few lines of code
 IMPORTANT: The solution should just be the code snippet fixing the logic, do not add import statements, create
 functions or try-catch blocks
+Return only the valid Java source snippet.
 Also do not add comments inside the possible solution, but integrate the logic behind them in the explanation section
 """
 )
@@ -114,6 +136,112 @@ After applying multiple fixes and verifying it with CogniCrypt, this is the fina
 Explain the vulnerability and how the final code fixes it. Use clear, technical language, max 150 words.
 Do not include the code in your answer — only return the explanation.
 """
+)
+
+InitialFix_Prompt = ChatPromptTemplate.from_template(
+    """
+    You are an expert Java security developer tasked with fixing a single, specific vulnerability in a full Java class. Your task is to be precise and minimalist.
+
+    **Critical Rules:**
+    - **DO NOT** change any variable names, class names, or method signatures.
+    - **DO NOT** alter the program's existing logic, functionality, or behavior.
+    - **DO NOT** add any new public methods or fields.
+    - **DO** focus exclusively on fixing the single target vulnerability. Your changes should be as small and localized as possible.
+    - **ONLY** output the complete, modified Java source code. Do not include explanations, apologies, or any surrounding text.
+
+    ---
+
+    **CONTEXT:**
+
+    The full Java source code is provided below. It contains a chain of related security errors.
+    ```java
+    {full_source_code}
+    ```
+
+    ---
+
+    **YOUR TASK:**
+
+    You must fix ONLY the following target error.
+
+    - **Error Hashcode/ID:** {error_id}
+    - **Line Number:** {error_line_number}
+    - **Error Message:** {error_message}
+    - **Vulnerability Rule:** {error_rule}
+
+    This error is part of a sequence.
+    - It is preceded by the error: {preceding_error_message}
+    - It is followed by the error: {subsequent_error_message}
+
+    Apply the minimal necessary changes to the full source code to resolve ONLY the target error described above.
+
+    **Output the complete, corrected Java code now.**
+    """
+)
+
+Refinement_Prompt = ChatPromptTemplate.from_template(
+    """
+    You are an expert Java security developer. Your previous attempt to fix a vulnerability was incorrect and was rejected by a security scanner. You must now refine your fix based on the scanner's report.
+
+    **Critical Rules:**
+    - **DO NOT** change variable names, class names, or method signatures.
+    - **DO NOT** alter the program's logic or functionality.
+    - **ONLY** modify the code to satisfy the requirements of the new error report.
+    - **ONLY** output the complete, modified Java source code.
+
+    ---
+
+    **CONTEXT:**
+
+    Here is the Java code from your previous, incorrect attempt:
+    ```java
+    {previous_code_attempt}
+    ```
+
+    ---
+
+    **YOUR TASK:**
+
+    The code above FAILED a security scan. The scanner produced a new report detailing the remaining violations. Here is a summary of the current error graph:
+
+    **Remaining Errors Summary:**
+    {error_graph_summary}
+
+    Analyze this new error summary and the code. Apply the minimal changes necessary to fix the violations described.
+
+    **Output the complete, corrected Java code now.**
+    """
+)
+
+CompilationFix_Prompt = ChatPromptTemplate.from_template(
+    """
+    You are a Java compiler expert. The Java code you previously generated has a compilation error and could not be compiled.
+
+    **Critical Rules:**
+    - Your ONLY goal is to fix the syntax and make the code compile.
+    - **DO NOT** attempt to fix any security issues in this step.
+    - **DO NOT** change variable names or program logic.
+    - **ONLY** output the complete, compilable Java source code.
+
+    ---
+
+    **CONTEXT:**
+
+    The following Java code is syntactically incorrect. The compilation failed with this error:
+    {compilation_error_message}
+    
+    ```java
+    {code_with_compilation_error}
+    ```
+
+    ---
+
+    **YOUR TASK:**
+
+    Fix the compilation error so that the code is valid Java.
+
+    **Output the complete, corrected Java code now.**
+    """
 )
 
 class BaseLLM:
@@ -167,6 +295,86 @@ class BaseLLM:
             "final_code": final_code
         }).strip()
 
+    def select_relevant_cwes(self, vulnerable_code: str, context: str, error_message: str, candidate_cwe_ids: list) -> list:
+        """
+        Use LLM to select the most relevant CWE IDs with simple parsing
+        """
+        logger.info(f"Prompting LLM to select most relevant CWEs from {len(candidate_cwe_ids)} candidates")
+        
+        cwe_list_str = ", ".join(sorted(set(candidate_cwe_ids)))
+        
+        chain = CWE_Selection_Prompt | self.llm | self.output_parser
+        
+        try:
+            response = chain.invoke({
+                "vulnerable_code": vulnerable_code,
+                "context": context,
+                "error_message": error_message,
+                "candidate_cwe_ids": cwe_list_str
+            }).strip()
+            
+            logger.info(f"LLM response: {response}")
+            
+            # Simple regex extraction
+            import re
+            cwe_matches = re.findall(r'CWE-?\d+', response, re.IGNORECASE)
+            
+            # Format and filter
+            candidate_set = set(candidate_cwe_ids)
+            selected = []
+            
+            for match in cwe_matches:
+                cwe_id = f"CWE-{re.search(r'\d+', match).group(0)}"
+                if cwe_id in candidate_set and cwe_id not in selected:
+                    selected.append(cwe_id)
+                    if len(selected) >= 3:
+                        break
+            
+            if selected:
+                logger.info(f"LLM selected CWEs: {selected}")
+                return selected
+            else:
+                # Fallback
+                fallback = list(sorted(candidate_set))[:3]
+                logger.info(f"No valid selection, using fallback: {fallback}")
+                return fallback
+            
+        except Exception as e:
+         logger.error(f"CWE selection failed: {e}")
+        return list(sorted(set(candidate_cwe_ids)))[:3]
 
+    def new_fix_targeted_error(self,full_code: str,error_details: dict,sarif_report: str = None,compilation_error: str = None):
+        logger.info(f"Initiating new targeted fix for error ID: {error_details.get('hashcode')}")
 
+        if compilation_error:
+            logger.info("Using CompilationFix_Prompt to fix syntax error.")
+            prompt = CompilationFix_Prompt
+            payload = {
+                "code_with_compilation_error": full_code,
+                "compilation_error_message": compilation_error
+            }
+        elif sarif_report:
+            logger.info("Using Refinement_Prompt with new SARIF report.")
+            prompt = Refinement_Prompt
+            payload = {
+                "previous_code_attempt": full_code,
+                "sarif_report": sarif_report
+            }
+        else:
+            logger.info("Using InitialFix_Prompt for the first attempt.")
+            prompt = InitialFix_Prompt
+            payload = {
+                "full_source_code": full_code,
+                "error_id": error_details.get('hashcode'), # Using hashcode as the unique ID from the initial payload
+                "error_line_number": error_details.get('line'),
+                "error_message": error_details.get('message'),
+                "error_rule": error_details.get('rule'),
+                "preceding_error_message": error_details.get('preceding_error_message', 'None'),
+                "subsequent_error_message": error_details.get('subsequent_error_message', 'None')
+            }
 
+        chain = prompt | self.llm | self.output_parser
+
+        # Invoke the LLM and return the resulting code
+        proposed_new_code = chain.invoke(payload).strip()
+        return proposed_new_code

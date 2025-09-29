@@ -1,5 +1,6 @@
 import sqlite3
 import json
+import time
 from datetime import datetime
 
 DB_FILE = "analysis_results.db"
@@ -63,7 +64,12 @@ def get_all_records():
             records.append(record)
         return records
     
-def get_record_by_input(input_data):
+
+def get_record_by_input(input_data, delay_seconds=5):
+    """
+    Return cached record if present, applying a fixed delay on cache hit.
+    No expiration policy is enforced.
+    """
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -80,11 +86,16 @@ def get_record_by_input(input_data):
         ))
         row = cursor.fetchone()
         if not row:
-            return None
+            return None  # No cache entry; proceed with API call [attached_file:1]
+
+        # Cache hit: apply artificial delay, then return cached data [attached_file:1]
+        time.sleep(delay_seconds)
+
         try:
             output_parsed = json.loads(row[6])
         except Exception as e:
             output_parsed = {"error": str(e), "raw": row[6]}
+
         return {
             "id": row[0],
             "code": row[1],
@@ -96,10 +107,11 @@ def get_record_by_input(input_data):
             "created_at": row[7]
         }
 
+
     
     
 
-# # Only for manual testing (optional)
+# # Only for manual testing 
 # if __name__ == '__main__':
 #     init_db()
 #     print("Database initialized.")
