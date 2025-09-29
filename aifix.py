@@ -436,6 +436,17 @@ def new_ai_fix(extracted_data: dict):
                 vulnerability_name = f"Multi-node Trace Analysis ({len(error_trace)} errors)"
 
             # === PHASE 5: Enhanced Response Formatting ===
+
+            if current_code.lstrip().startswith("```"):
+                logger.info("Fenced block detected at start of snippet, applying code sanitizer")
+                cleaned = extract_java_source(current_code)
+                current_code = cleaned if cleaned else current_code
+            else:
+                logger.info("No fenced block detected, applying code sanitizer for cleanup")
+                # Still sanitize even if no fenced blocks to remove any unwanted text
+                cleaned = extract_java_source(current_code)
+                current_code = cleaned if cleaned else current_code
+            
             return {
                 "Vulnerability_name": vulnerability_name,
                 "Explanation": final_explanation,
