@@ -28,7 +28,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           # The context is the './flaskapp' directory where the Dockerfile is located
-          context: ./flaskapp
+          context: .
           # Push the built image to the registry
           push: true
           # Tag the image with your Docker Hub username and "latest"
