@@ -1,0 +1,39 @@
+# .github/workflows/publish-flaskapp.yml
+
+name: Build and Publish Image to GHCR
+
+# This workflow can be triggered manually
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    # Grant permissions for the GITHUB_TOKEN to write packages
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      # 1. Log in to the GitHub Container Registry
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          # The username is your GitHub username or organization name
+          username: ${{ github.repository_owner }}
+          # The password is the automatically generated GITHUB_TOKEN
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 2. Build and push the image to GHCR
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          # The image tag is now prefixed with ghcr.io/
+          # ${{ github.repository }} dynamically gets "your-username/your-repo-name"
+          tags: ghcr.io/${{ github.repository }}:latest
