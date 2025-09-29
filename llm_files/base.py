@@ -133,55 +133,62 @@ After applying multiple fixes and verifying it with CogniCrypt, this is the fina
 
 {final_code}
 
-Explain the vulnerability and how the final code fixes it. Use clear, technical language, max 150 words.
+Explain the vulnerability and how the final code fixes it. Use clear, technical language, max 250 words.
 Do not include the code in your answer — only return the explanation.
 """
 )
 
 InitialFix_Prompt = ChatPromptTemplate.from_template(
-    """
-    You are an expert Java security developer tasked with fixing a single, specific vulnerability in a full Java class. Your task is to be precise and minimalist.
+"""You are an expert Java security developer specializing in cryptographic vulnerability remediation.
 
-    **Critical Rules:**
-    - **DO NOT** change any variable names, class names, or method signatures.
-    - **DO NOT** alter the program's existing logic, functionality, or behavior.
-    - **DO NOT** add any new public methods or fields.
-    - **DO** focus exclusively on fixing the single target vulnerability. Your changes should be as small and localized as possible.
-    - **ONLY** output the complete, modified Java source code. Do not include explanations, apologies, or any surrounding text.
+**OBJECTIVE:** Fix a single, specific security vulnerability with surgical precision while preserving all existing functionality.
 
-    ---
+**PRESERVATION CONSTRAINTS:**
+• NEVER modify: variable names, class names, method signatures, or access modifiers
+• NEVER alter: program logic, control flow, or functional behavior  
+• NEVER add: new methods, fields, imports, or structural changes
+• NEVER remove: existing functionality or code sections
+• ONLY modify: the specific vulnerable code pattern causing the security issue
 
-    **CONTEXT:**
+**SOURCE CODE:**
+The full Java source code is provided below. It contains a chain of related security errors
 
-    The full Java source code is provided below. It contains a chain of related security errors.
-    ```java
-    {full_source_code}
-    ```
+{full_source_code}
 
-    ---
 
-    **YOUR TASK:**
+**TARGET VULNERABILITY:**
+• **Error Hashcode/ID:** {error_id}
+• **Location:** Line {error_line_number}  
+• **Security Issue:** {error_message}
+• **Violated Rule:** {error_rule}
 
-    You must fix ONLY the following target error.
+**ERROR CHAIN CONTEXT:**
+• **Upstream Dependency:** {preceding_error_message}
+• **Downstream Impact:** {subsequent_error_message}
 
-    - **Error Hashcode/ID:** {error_id}
-    - **Line Number:** {error_line_number}
-    - **Error Message:** {error_message}
-    - **Vulnerability Rule:** {error_rule}
+**SECURITY FIX STRATEGY:**
+1. **Locate** the vulnerable pattern at line {error_line_number}
+2. **Identify** the specific security weakness (e.g., weak algorithm, insufficient key size, improper initialization)
+3. **Apply** minimal security hardening (typically 1-3 lines changed)
+4. **Ensure** fix aligns with cryptographic best practices for {error_rule}
+5. **Preserve** all existing variable assignments and method calls
 
-    This error is part of a sequence.
-    - It is preceded by the error: {preceding_error_message}
-    - It is followed by the error: {subsequent_error_message}
+**CONSTRAINTS VALIDATION:**
+1. Does the fix address the specific vulnerability at line {error_line_number}?
+2. Are all variable names and method signatures unchanged?
+3. Is the fix minimal?
+4. Does the code still compile and maintain original behavior?
 
-    Apply the minimal necessary changes to the full source code to resolve ONLY the target error described above.
+**OUTPUT INSTRUCTION:**
+Return ONLY the complete, corrected Java source code. Begin immediately with imports or class declaration. No explanations, no markdown, no surrounding text.
 
-    **Output the complete, corrected Java code now.**
-    """
+---
+"""
 )
 
 Refinement_Prompt = ChatPromptTemplate.from_template(
     """
-    You are an expert Java security developer. Your previous attempt to fix a vulnerability was incorrect and was rejected by a security scanner. You must now refine your fix based on the scanner's report.
+    You are an expert Java security developer. Your previous attempt to fix a vulnerability was incorrect and was rejected by CogniCrypt. You must now refine your fix based on the scanner's report.
 
     **Critical Rules:**
     - **DO NOT** change variable names, class names, or method signatures.
@@ -189,16 +196,11 @@ Refinement_Prompt = ChatPromptTemplate.from_template(
     - **ONLY** modify the code to satisfy the requirements of the new error report.
     - **ONLY** output the complete, modified Java source code.
 
-    ---
-
     **CONTEXT:**
 
     Here is the Java code from your previous, incorrect attempt:
-    ```java
-    {previous_code_attempt}
-    ```
 
-    ---
+    {previous_code_attempt}
 
     **YOUR TASK:**
 
@@ -230,11 +232,8 @@ CompilationFix_Prompt = ChatPromptTemplate.from_template(
     The following Java code is syntactically incorrect. The compilation failed with this error:
     {compilation_error_message}
     
-    ```java
-    {code_with_compilation_error}
-    ```
 
-    ---
+    {code_with_compilation_error}
 
     **YOUR TASK:**
 

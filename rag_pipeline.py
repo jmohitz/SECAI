@@ -31,30 +31,52 @@ class CWEMapper:
             logger.error(f"Failed to initialize CWE mapper: {e}")
             raise
 
+    # In CWEMapper.get_static_cwe_ids() method
     def get_static_cwe_ids(self, crysl_rule: str) -> Set[str]:
         logger.debug(f"Looking up static CWE IDs for CrySL rule: {crysl_rule}")
         
-        # Add .crysl extension if not present
-        rule_filename = crysl_rule if crysl_rule.endswith('.crysl') else f"{crysl_rule}.crysl"
+        # Generate possible rule name variants
+        rule_variants = []
         
-        # Filter by CrySL File column (FIXED)
-        filtered = self.mapping_df[
-            self.mapping_df["CrySL File"].str.strip().str.lower() == rule_filename.strip().lower()
-        ]
+        # Original rule as provided
+        rule_variants.append(crysl_rule)
+        
+        # Add .crysl extension if not present
+        if not crysl_rule.endswith('.crysl'):
+            rule_variants.append(f"{crysl_rule}.crysl")
+        
+        # Handle full Java class names (e.g., "java.security.KeyPairGenerator")
+        if "." in crysl_rule:
+            class_name = crysl_rule.split(".")[-1]  # Extract "KeyPairGenerator"
+            rule_variants.append(class_name)
+            rule_variants.append(f"{class_name}.crysl")
+        
+        logger.debug(f"Rule variants to search: {rule_variants}")
         
         cwe_ids = set()
-        for _, row in filtered.iterrows():
-            cwe = row["CWE-ID(s)"]  # FIXED: Use correct column name
-            if pd.notna(cwe):
-                # Handle both single CWE-IDs and comma-separated lists
-                cwe_ids.update([c.strip() for c in str(cwe).split(",") if c.strip()])
+        found_variant = None
+        
+        for variant in rule_variants:
+            # Filter by CrySL File column
+            filtered = self.mapping_df[
+                self.mapping_df["CrySL File"].str.strip().str.lower() == variant.strip().lower()
+            ]
+            
+            if not filtered.empty:
+                found_variant = variant
+                for _, row in filtered.iterrows():
+                    cwe = row["CWE-ID(s)"]
+                    if pd.notna(cwe):
+                        cwe_ids.update([c.strip() for c in str(cwe).split(",") if c.strip()])
+                break  # Stop on first match
         
         if cwe_ids:
-            logger.info(f"Static CWE IDs found for {crysl_rule}: {cwe_ids}")
+            logger.info(f"Static CWE IDs found for {crysl_rule} (matched as '{found_variant}'): {cwe_ids}")
         else:
-            logger.warning(f"No static CWE IDs found for {crysl_rule}")
+            logger.warning(f"No static CWE IDs found for {crysl_rule} (tried variants: {rule_variants})")
         
         return cwe_ids
+
 
 class RAGPipeline:
     def __init__(self, document_processor, vector_store_manager, llm_handler):

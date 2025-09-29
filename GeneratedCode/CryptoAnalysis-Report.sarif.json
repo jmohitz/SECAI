@@ -23,10 +23,10 @@
         "totalRulesCount" : 51,
         "statistics" : {
           "entryPoints" : 5,
-          "analysisTime" : "412.0 ms",
+          "analysisTime" : "439.5 ms",
           "edgesInCallGraph" : 33,
-          "callGraphConstructionTime" : "278.1 ms",
-          "typestateAnalysisTime" : "255.6 ms",
+          "callGraphConstructionTime" : "401.5 ms",
+          "typestateAnalysisTime" : "252.3 ms",
           "reachableMethods" : 14
         }
       }
