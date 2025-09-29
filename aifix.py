@@ -9,11 +9,50 @@ from typing import Dict, Any, Tuple
 from logger_config import get_logger
 from ccrun import CCRUN
 from utils.code_sanitizer import extract_java_source
+import shutil
 
 # Initialize logging and load environment variables (API keys, etc.)
 logger = get_logger(__name__)
 load_dotenv()
 
+def cleanup_generated_files():
+    """
+    Clean up all generated files from the GeneratedCode directory after pipeline completion.
+    This ensures a fresh environment for the next analysis run.
+    """
+    generated_dir = os.path.abspath("GeneratedCode")
+
+    if os.path.exists(generated_dir):
+        try:
+            # Get list of files before deletion for logging
+            files_to_delete = []
+            for root, dirs, files in os.walk(generated_dir):
+                for file in files:
+                    files_to_delete.append(os.path.join(root, file))
+
+            if files_to_delete:
+                logger.info(f"Cleaning up {len(files_to_delete)} generated files from {generated_dir}")
+                # Delete all contents but keep the directory
+                for filename in os.listdir(generated_dir):
+                    file_path = os.path.join(generated_dir, filename)
+                    try:
+                        if os.path.isfile(file_path) or os.path.islink(file_path):
+                            os.unlink(file_path)
+                            logger.debug(f"Deleted file: {filename}")
+                        elif os.path.isdir(file_path):
+                            shutil.rmtree(file_path)
+                            logger.debug(f"Deleted directory: {filename}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete {file_path}: {e}")
+
+                logger.info("GeneratedCode directory cleaned successfully")
+            else:
+                logger.info("GeneratedCode directory already empty")
+
+        except Exception as e:
+            logger.warning(f"Error during cleanup: {e}. Continuing with response...")
+    else:
+        logger.info("GeneratedCode directory doesn't exist, no cleanup needed")
 
 def _parse_provider_and_model(s: str) -> Tuple[str, str | None]:
     """
@@ -136,7 +175,7 @@ def ai_fix(code_input: str, rule: str, message: str, llm_model: str, iterations_
         # Use CogniCrypt to verify and refine the generated secure code
         ccrunner = CCRUN(handler)
         try:
-            final_code, verified = ccrunner.iterate_until_verified(java_code, max_iterations=iterations_cc)
+            final_code, verified = ccrunner.iterate_until_verified(java_code, max_iterations=iterations_cc, class_name=None)
         except RuntimeError as re_err:
             # Propagate normalized compilation signal upward
             if "COMPILATION_ERROR" in str(re_err):
@@ -206,6 +245,8 @@ def new_ai_fix(extracted_data: dict):
     error_trace = extracted_data['simplified_trace']['trace_flow']
     current_source_code = extracted_data['source_code']
     package_info = extracted_data['package_info']
+    class_name = extracted_data['class_name']
+    class_name = class_name.split('.')[-1]
     llm_model_name = extracted_data.get("llm_model", "openai")
     max_iterations = extracted_data.get("iterations", 3)
 
@@ -323,7 +364,8 @@ def new_ai_fix(extracted_data: dict):
                     # Verify and refine the code using CogniCrypt
                     verified_code, is_verified = ccrun_verifier.iterate_until_verified(
                         initial_solution=fixed_code,
-                        max_iterations=2  # Limit per-error iterations
+                        max_iterations=2,
+                        class_name=class_name
                     )
 
                     logger.info(f"CogniCrypt verification completed. Verified: {is_verified}")
@@ -337,7 +379,7 @@ def new_ai_fix(extracted_data: dict):
 
                     try:
                         # Run a fresh scan to see what errors still exist
-                        fresh_sarif_path = ccrun_verifier.new_run_single_scan(current_code, "Main")
+                        fresh_sarif_path = ccrun_verifier.new_run_single_scan(current_code, class_name)
                         still_existing_errors = ccrun_verifier.new_get_violations_from_sarif(fresh_sarif_path)
 
                         # Get hashcodes/IDs of errors that still exist
@@ -398,7 +440,10 @@ def new_ai_fix(extracted_data: dict):
             logger.info("Sequential processing completed. Generating final response...")
 
             # Generate final explanation considering all processed errors
-            final_explanation = handler.final_explanation(current_source_code,current_code)
+            final_explanation = handler.final_explanation(
+                f"Original code with {len(processed_errors)} trace errors",
+                current_code
+            )
 
             # Calculate overall verification status
             verified_count = sum(1 for e in processed_errors if e.get("verified", False))
@@ -443,7 +488,13 @@ def new_ai_fix(extracted_data: dict):
                 # Still sanitize even if no fenced blocks to remove any unwanted text
                 cleaned = extract_java_source(current_code)
                 current_code = cleaned if cleaned else current_code
-            
+
+            if package_info:
+                logger.info(f"Adding package declaration back: {package_info}")
+                current_code = f"{package_info}\n\n{current_code}"
+
+            cleanup_generated_files()
+
             return {
                 "Vulnerability_name": vulnerability_name,
                 "Explanation": final_explanation,
@@ -461,6 +512,7 @@ def new_ai_fix(extracted_data: dict):
             }
 
         except Exception as e:
+            cleanup_generated_files()
             logger.error(f"Sequential processing failed: {e}", exc_info=True)
             return {
                 "error": f"Sequential processing failed: {str(e)}",
@@ -469,5 +521,6 @@ def new_ai_fix(extracted_data: dict):
 
 
     except Exception as e:
+        cleanup_generated_files()
         logger.error(f"Failed to initialize tools: {e}", exc_info=True)
         return {"error": "Tool initialization failed."}

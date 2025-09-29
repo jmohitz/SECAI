@@ -30,14 +30,24 @@ class CCRUN:
             data = json.load(f)
         return len(data["runs"][0].get("results", [])) > 0
 
-    def iterate_until_verified(self, initial_solution: str, max_iterations: int = 10) -> Tuple[str, bool]:
+    def iterate_until_verified(self, initial_solution: str, max_iterations: int = 10, class_name=None) -> Tuple[str, bool]:
         current_solution = initial_solution
 
         for i in range(max_iterations):
             logger.info(f" Iteration {i + 1} - Saving, compiling, and analyzing Java code")
 
+            work_dir = os.path.abspath("GeneratedCode")
+            os.makedirs(work_dir, exist_ok=True)
             # Step 1: Save code
-            java_path = save_llm_output(current_solution, "Main.java")
+            if class_name:
+                java_filename = f"{class_name}.java"
+            else:
+                java_filename = "Main.java"
+
+            java_path = os.path.join(work_dir, java_filename)
+            save_llm_output(current_solution, java_path)
+            logger.info(f"[Iteration {i + 1}] Using class name: {java_filename}")
+
             logger.info(f"[Iteration {i + 1}]  Java code saved to {java_path}")
 
             # Step 2: Compile code
