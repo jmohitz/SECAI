@@ -350,7 +350,7 @@ def new_ai_fix(extracted_data: dict):
 
                         resolved_count = len(originally_remaining) - len(remaining_errors)
                         if resolved_count > 0:
-                            logger.info(f"🎉 {resolved_count} additional errors were automatically resolved by fixing {current_error_hashcode}!")
+                            logger.info(f"SUCCESS: {resolved_count} additional errors were automatically resolved by fixing {current_error_hashcode}!")
 
                         # Remove the current error from remaining list (it's been processed)
                         if current_error_hashcode in remaining_errors:
@@ -398,10 +398,7 @@ def new_ai_fix(extracted_data: dict):
             logger.info("Sequential processing completed. Generating final response...")
 
             # Generate final explanation considering all processed errors
-            final_explanation = handler.final_explanation(
-                f"Original code with {len(processed_errors)} trace errors",
-                current_code
-            )
+            final_explanation = handler.final_explanation(current_source_code,current_code)
 
             # Calculate overall verification status
             verified_count = sum(1 for e in processed_errors if e.get("verified", False))
