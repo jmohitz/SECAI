@@ -364,7 +364,7 @@ def new_ai_fix(extracted_data: dict):
                     # Verify and refine the code using CogniCrypt
                     verified_code, is_verified = ccrun_verifier.iterate_until_verified(
                         initial_solution=fixed_code,
-                        max_iterations=2,
+                        max_iterations=max_iterations,
                         class_name=class_name
                     )
 
