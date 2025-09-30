@@ -323,7 +323,9 @@ class BaseLLM:
             selected = []
             
             for match in cwe_matches:
-                cwe_id = f"CWE-{re.search(r'\d+', match).group(0)}"
+                number_search = re.search(f'\d+',match)
+                if number_search:
+                    cwe_id = f"CWE-{number_search.group(0)}"
                 if cwe_id in candidate_set and cwe_id not in selected:
                     selected.append(cwe_id)
                     if len(selected) >= 3:

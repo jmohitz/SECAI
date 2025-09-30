@@ -68,29 +68,82 @@ def aifix():
 def new_aifix():
     """
     Handles the new payload and passes the extracted data to the sequential fixer.
+    Now includes caching functionality with conditional saving.
     """
     logger.info("Received request on the new /newfix endpoint.")
     try:
         # 1. Get the raw payload
         payload = request.get_json()
         if not payload:
-            logger.error("Error: Missing JSON payload for /aifix/v2")
+            logger.error("Error: Missing JSON payload for /newfix")
             return jsonify({"error": "Missing JSON payload"}), 400
 
         # 2. Call the payload extraction module to process the data
         extracted_data = payload_extraction.process_payload(payload)
         logger.info("Payload processed successfully by payload_extraction module.")
 
-        # 3. Call the new sequential fixing function in aifix.py
-        # Pass the entire dictionary of extracted data
+        # 3. NEW: Check cache before processing
+        cached_result = app_db.get_newfix_record_by_input(extracted_data)
+        if cached_result is not None:
+            logger.info("Returning cached newfix result from DB.")
+            return jsonify(cached_result["output"])
+
+        logger.info("Data not found in newfix cache, starting the analysis")
+
+        # 4. Call the new sequential fixing function in aifix.py
         final_result = new_ai_fix(extracted_data)
 
-        # 4. Return the final result
+        # 5. NEW: Conditional caching logic
+        # Only save if CogniCrypt verified and no errors
+        if app_db._should_save_newfix_record(final_result):
+            logger.info("Saving newfix result to cache (CogniCrypt verified, no errors)")
+            saved = app_db.save_newfix_analysis_record(extracted_data, final_result)
+            if saved:
+                logger.info("Newfix result successfully cached")
+            else:
+                logger.warning("Failed to save newfix result to cache")
+        else:
+            logger.info("Skipping cache save: CogniCrypt not verified or contains errors")
+
+        # 6. Return the final result
         return jsonify(final_result)
 
     except Exception as e:
-        logger.error(f"An unexpected error occurred in /aifix/v2: {str(e)}", exc_info=True)
+        logger.error(f"An unexpected error occurred in /newfix: {str(e)}", exc_info=True)
         return jsonify({"error": "An internal server error occurred."}), 500
+
+# # Optional: Add endpoint to view cache statistics
+# @app.route('/cache-stats', methods=['GET'])
+# def cache_stats():
+#     """
+#     Endpoint to view caching statistics for both endpoints.
+#     """
+#     try:
+#         # Get counts for both cache types
+#         aifix_records = app_db.get_all_records()
+#         newfix_records = app_db.get_all_newfix_records()
+        
+#         # Count verified vs unverified for newfix
+#         newfix_verified = sum(1 for record in newfix_records if record.get('cognicrypt_verified', False))
+        
+#         stats = {
+#             "aifix_cache": {
+#                 "total_records": len(aifix_records),
+#                 "latest_record": aifix_records[0]["created_at"] if aifix_records else None
+#             },
+#             "newfix_cache": {
+#                 "total_records": len(newfix_records),
+#                 "verified_records": newfix_verified,
+#                 "unverified_records": len(newfix_records) - newfix_verified,
+#                 "latest_record": newfix_records[0]["created_at"] if newfix_records else None
+#             }
+#         }
+        
+#         return jsonify(stats)
+        
+#     except Exception as e:
+#         logger.error(f"Error retrieving cache stats: {str(e)}")
+#         return jsonify({"error": "Failed to retrieve cache statistics"}), 500
 
 if __name__ == '__main__':
     logger.info("Starting the API")
