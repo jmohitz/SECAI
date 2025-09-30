@@ -231,12 +231,12 @@ class RAGPipeline:
                 # Initial payload: "java.security.KeyPairGenerator"
                 # SARIF: "javax.crypto.Cipher"
                 if ":" in rule:
-                    error_type = rule.split(":")[1].split("_")[0]
+                    error_type = rule.split(":")[1].split("_")[0].lower()
                     crysl_rule = rule.split("_")[1]
                 else:
                     # Direct rule name (SARIF format)
                     crysl_rule = rule
-                    error_type = error_node.get("errorType", "unknown")
+                    error_type = error_node.get("errorType", "unknown").lower()
             except (IndexError, AttributeError):
                 logger.warning(f"Could not parse rule format: {rule}")
                 error_type = "unknown"
